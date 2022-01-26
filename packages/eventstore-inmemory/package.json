@@ -1,6 +1,6 @@
 {
     "name": "@eventsource/eventstore-inmemory",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Eventstore inmemory",
     "keywords": [
         "eventstore",
@@ -75,16 +75,16 @@
         "rxjs": "^7.0.0"
     },
     "dependencies": {
+        "@eventsource/events": "^0.1.1",
+        "@eventsource/eventstore": "^0.1.1",
         "fp-ts": "^2.11.0",
-        "uuid": "^8.0.0",
         "tslib": "^1.9.3",
-        "@eventsource/events": "^0.1.0",
-        "@eventsource/eventstore": "^0.1.0"
+        "uuid": "^8.0.0"
     },
     "devDependencies": {
-        "rxjs": "^7.0.0",
-        "@eventsource/eslint-config": "^0.1.0",
-        "@eventsource/package-builder": "^0.1.0",
-        "@eventsource/eventstore-test": "^0.1.0"
+        "@eventsource/eslint-config": "^0.1.1",
+        "@eventsource/eventstore-test": "^0.1.1",
+        "@eventsource/package-builder": "^0.1.1",
+        "rxjs": "^7.0.0"
     }
 }

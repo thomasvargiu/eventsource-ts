@@ -1,6 +1,6 @@
 {
     "name": "@eventsource/events",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "events",
     "keywords": [
         "eventstore",
@@ -73,11 +73,11 @@
     "sideEffects": false,
     "dependencies": {
         "fp-ts": "^2.11.0",
-        "uuid": "^8.0.0",
-        "tslib": "^1.9.3"
+        "tslib": "^1.9.3",
+        "uuid": "^8.0.0"
     },
     "devDependencies": {
-        "@eventsource/eslint-config": "^0.1.0",
-        "@eventsource/package-builder": "^0.1.0"
+        "@eventsource/eslint-config": "^0.1.1",
+        "@eventsource/package-builder": "^0.1.1"
     }
 }

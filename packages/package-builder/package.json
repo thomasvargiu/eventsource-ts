@@ -1,6 +1,6 @@
 {
     "name": "@eventsource/package-builder",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Package builder",
     "keywords": [],
     "author": "Thomas Vargiu <tvargiu@gmail.com>",
@@ -44,10 +44,10 @@
     },
     "dependencies": {
         "fp-ts": "^2.11.0",
-        "yargs": "^17.3.1",
-        "glob": "^7.2.0"
+        "glob": "^7.2.0",
+        "yargs": "^17.3.1"
     },
     "devDependencies": {
-        "@eventsource/eslint-config": "^0.1.0"
+        "@eventsource/eslint-config": "^0.1.1"
     }
 }

@@ -1,6 +1,6 @@
 {
     "name": "@eventsource/eventstore-mongo",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Mongo eventstore",
     "keywords": [
         "eventstore",
@@ -76,17 +76,17 @@
     },
     "sideEffects": false,
     "dependencies": {
+        "@eventsource/events": "^0.1.1",
+        "@eventsource/eventstore": "^0.1.1",
         "fp-ts": "^2.11.0",
-        "uuid": "^8.0.0",
         "mongodb": "^4.3.1",
-        "@eventsource/events": "^0.1.0",
-        "@eventsource/eventstore": "^0.1.0",
         "rxjs": "^7.0.0",
-        "ulid": "^2.3.0"
+        "ulid": "^2.3.0",
+        "uuid": "^8.0.0"
     },
     "devDependencies": {
-        "@eventsource/eslint-config": "^0.1.0",
-        "@eventsource/package-builder": "^0.1.0",
-        "@eventsource/eventstore-test": "^0.1.0"
+        "@eventsource/eslint-config": "^0.1.1",
+        "@eventsource/eventstore-test": "^0.1.1",
+        "@eventsource/package-builder": "^0.1.1"
     }
 }

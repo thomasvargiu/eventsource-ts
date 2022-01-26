@@ -1,6 +1,6 @@
 {
     "name": "@eventsource/eslint-config",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "eslint for eventsource-ts",
     "keywords": [
         "eslint",
@@ -47,7 +47,6 @@
         "eslint-plugin-rxjs": "^4.0.3",
         "eslint-plugin-unused-imports": "^2.0.0"
     },
-    "devDependencies": {},
     "publishConfig": {
         "directory": "dist"
     }
