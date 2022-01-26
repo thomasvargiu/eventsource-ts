@@ -1,6 +1,6 @@
 {
     "name": "@eventsource/events",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "events",
     "keywords": [
         "eventstore",
@@ -77,7 +77,7 @@
         "uuid": "^8.0.0"
     },
     "devDependencies": {
-        "@eventsource/eslint-config": "^0.1.1",
-        "@eventsource/package-builder": "^0.1.1"
+        "@eventsource/eslint-config": "^0.1.2",
+        "@eventsource/package-builder": "^0.1.2"
     }
 }
