@@ -11,7 +11,7 @@
 			"conventionalCommits": true
 		},
 		"version": {
-            "allowBranch": "main",
+            "allowBranch": "master",
 			"message": "chore(release): publish"
 		}
     }
