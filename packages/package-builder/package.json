@@ -18,6 +18,10 @@
         "type": "git",
         "url": "git+https://github.com/thomasvargiu/eventsource-ts.git"
     },
+    "publishConfig": {
+        "directory": "dist",
+        "access": "public"
+    },
     "prettier": "@eventsource/eslint-config/prettierrc.json",
     "scripts": {
         "prebuild": "run-p clean",
