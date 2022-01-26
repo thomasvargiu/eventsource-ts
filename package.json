@@ -19,7 +19,7 @@
         "lint:eslint": "lerna run --parallel lint:eslint",
         "pack:changed": "lerna run pack --since",
         "prepublishOnly": "lerna run --stream --concurrency 1 prepublishOnly",
-        "postpublish": "make publish-docs && lerna run --stream --concurrency 1 postpublish",
+        "postpublish": "lerna run --stream --concurrency 1 postpublish",
         "test": "lerna run --stream --concurrency 1 --sort test"
     },
     "devDependencies": {
