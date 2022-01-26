@@ -6,10 +6,10 @@
     "author": "Thomas Vargiu <tvargiu@gmail.com>",
     "homepage": "https://github.com/thomasvargiu/eventsource-ts",
     "license": "MIT",
-    "main": "dist/index.js",
-    "typings": "dist/index.d.ts",
+    "main": "./index.js",
+    "typings": "./index.d.ts",
     "bin": {
-        "es-package-builder": "dist/cli.js"
+        "es-package-builder": "./cli.js"
     },
     "engines": {
         "node": ">=14"
@@ -25,7 +25,7 @@
     "prettier": "@eventsource/eslint-config/prettierrc.json",
     "scripts": {
         "prebuild": "run-p clean",
-        "build": "run-p build:cjs && chmod +x ./dist/cli.js",
+        "build": "run-p build:cjs && chmod +x ./dist/cli.js && cp package.json dist/ && cp LICENSE dist/",
         "build:cjs": "tsc -p tsconfig.cjs.json",
         "build:dev": "run-s build",
         "build:watch": "run-p build:cjs:watch build:esm:watch",
