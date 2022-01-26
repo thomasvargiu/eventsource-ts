@@ -49,5 +49,6 @@
     },
     "publishConfig": {
         "directory": "dist"
-    }
+    },
+    "gitHead": "f467420d3053dabf6f24e069c8feee8dbce0807d"
 }

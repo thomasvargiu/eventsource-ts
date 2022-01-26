@@ -75,5 +75,6 @@
     "devDependencies": {
         "@eventsource/eslint-config": "^0.1.2",
         "@eventsource/package-builder": "^0.1.2"
-    }
+    },
+    "gitHead": "f467420d3053dabf6f24e069c8feee8dbce0807d"
 }
