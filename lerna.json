@@ -4,8 +4,15 @@
     ],
     "version": "independent",
     "command": {
-        "version": {
-            "allowBranch": "main"
-        }
+        "bootstrap": {
+            "hoist": true
+        },
+        "publish": {
+			"conventionalCommits": true
+		},
+		"version": {
+            "allowBranch": "main",
+			"message": "chore(release): publish"
+		}
     }
 }
