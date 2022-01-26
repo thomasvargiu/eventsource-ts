@@ -1,0 +1,54 @@
+{
+    "name": "@eventsource/eslint-config",
+    "version": "0.1.0",
+    "description": "eslint for eventsource-ts",
+    "keywords": [
+        "eslint",
+        "eventsource-ts"
+    ],
+    "author": "Thomas Vargiu <tvargiu@gmail.com>",
+    "homepage": "https://github.com/thomasvargiu/eventsource-ts",
+    "license": "MIT",
+    "main": "index.js",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/thomasvargiu/eventsource-ts.git"
+    },
+    "scripts": {
+        "prebuild": "run-p clean",
+        "build": "run-p build:cjs && cp .prettierrc.json dist/prettierrc.json && cp package.json dist/ && cp LICENSE dist/",
+        "build:cjs": "tsc -p tsconfig.cjs.json",
+        "build:dev": "run-s build",
+        "build:watch": "run-p build:cjs:watch build:esm:watch",
+        "build:cjs:watch": "tsc -p tsconfig.cjs.json -w --preserveWatchOutput",
+        "build:dev:watch": "run-s build:watch",
+        "circularDepCheck": "madge --circular src/index.ts",
+        "clean": "rimraf dist esm coverage",
+        "pack": "npm pack",
+        "test": "eslint ./test/. --no-eslintrc -c ./test/_config.js --ext .ts",
+        "test:watch": "jest --watch"
+    },
+    "bugs": {
+        "url": "https://github.com/thomasvargiu/eventsource-ts/issues"
+    },
+    "peerDependencies": {
+        "eslint": "^7.0.0 || ^8.0.0",
+        "prettier": "^2.5",
+        "typescript": "^3.7 || ^4.0"
+    },
+    "dependencies": {
+        "@typescript-eslint/eslint-plugin": "^5.6.0",
+        "@typescript-eslint/parser": "^5.6.0",
+        "eslint-config-prettier": "^8.3.0",
+        "eslint-plugin-fp-ts": "^0.3.0",
+        "eslint-plugin-import": "^2.25.3",
+        "eslint-plugin-node": "^11.1.0",
+        "eslint-plugin-prettier": "^4.0.0",
+        "eslint-plugin-rxjs": "^4.0.3",
+        "eslint-plugin-unused-imports": "^2.0.0"
+    },
+    "devDependencies": {},
+    "publishConfig": {
+        "directory": "dist"
+    }
+}

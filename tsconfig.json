@@ -1,0 +1,26 @@
+{
+    "compilerOptions": {
+        "target": "ES2015",
+        "module": "commonjs",
+        "lib": [],
+        "outDir": "dist/lib",
+        "strict": true,
+        "esModuleInterop": true,
+        "moduleResolution": "node",
+        "forceConsistentCasingInFileNames": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noImplicitReturns": true,
+        "noFallthroughCasesInSwitch": true,
+        "pretty": true,
+        "removeComments": true,
+        "sourceMap": false,
+        "declaration": true,
+        "declarationMap": true,
+        "downlevelIteration": true,
+        "importsNotUsedAsValues": "error",
+        "importHelpers": true,
+        "stripInternal": true,
+        "noEmit": false
+    }
+}

@@ -1,0 +1,90 @@
+{
+    "name": "@eventsource/eventstore-inmemory",
+    "version": "0.1.0",
+    "description": "Eventstore inmemory",
+    "keywords": [
+        "eventstore",
+        "eventsource",
+        "events",
+        "functional"
+    ],
+    "author": "Thomas Vargiu <tvargiu@gmail.com>",
+    "homepage": "https://github.com/thomasvargiu/eventsource-ts",
+    "license": "MIT",
+    "main": "lib/index.js",
+    "module": "es6/index.js",
+    "typings": "lib/index.d.ts",
+    "engines": {
+        "node": ">=14"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/thomasvargiu/eventsource-ts.git"
+    },
+    "bugs": {
+        "url": "https://github.com/thomasvargiu/eventsource-ts/issues"
+    },
+    "publishConfig": {
+        "directory": "dist"
+    },
+    "prettier": "@eventsource/eslint-config/prettierrc.json",
+    "scripts": {
+        "prebuild": "run-p clean",
+        "build": "run-p build:cjs build:esm && es-package-builder build",
+        "build:cjs": "tsc -p tsconfig.cjs.json",
+        "build:dev": "run-s build",
+        "build:esm": "tsc -p tsconfig.esm.json",
+        "build:watch": "run-p build:cjs:watch build:esm:watch",
+        "build:cjs:watch": "tsc -p tsconfig.cjs.json -w --preserveWatchOutput",
+        "build:dev:watch": "run-s build:watch",
+        "build:esm:watch": "tsc -p tsconfig.esm.json -w --preserveWatchOutput",
+        "circularDepCheck": "madge --circular src/index.ts",
+        "clean": "rimraf dist esm coverage",
+        "fix": "run-s fix:eslint fix:prettier",
+        "fix:eslint": "eslint . --format stylish --fix",
+        "fix:prettier": "prettier --write \"{src,test}/**/*.ts\"",
+        "lint": "run-s lint:prettier lint:eslint",
+        "lint:eslint": "eslint . --cache --cache-location '../../eslintcache/' --format stylish",
+        "lint:prettier": "prettier --check \"{src,test}/**/*.ts\"",
+        "pack": "npm pack",
+        "test": "jest",
+        "test:watch": "jest --watch"
+    },
+    "jest": {
+        "collectCoverage": true,
+        "transform": {
+            "^.+\\.ts$": "ts-jest"
+        },
+        "moduleFileExtensions": [
+            "js",
+            "ts"
+        ],
+        "testEnvironment": "node",
+        "testMatch": [
+            "**/*.test.ts"
+        ],
+        "globals": {
+            "ts-jest": {
+                "tsConfig": "./tsconfig.json",
+                "diagnostics": false
+            }
+        }
+    },
+    "sideEffects": false,
+    "peerDependencies": {
+        "rxjs": "^7.0.0"
+    },
+    "dependencies": {
+        "fp-ts": "^2.11.0",
+        "uuid": "^8.0.0",
+        "tslib": "^1.9.3",
+        "@eventsource/events": "^0.1.0",
+        "@eventsource/eventstore": "^0.1.0"
+    },
+    "devDependencies": {
+        "rxjs": "^7.0.0",
+        "@eventsource/eslint-config": "^0.1.0",
+        "@eventsource/package-builder": "^0.1.0",
+        "@eventsource/eventstore-test": "^0.1.0"
+    }
+}

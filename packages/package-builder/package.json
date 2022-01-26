@@ -1,0 +1,53 @@
+{
+    "name": "@eventsource/package-builder",
+    "version": "0.1.0",
+    "description": "Package builder",
+    "keywords": [],
+    "author": "Thomas Vargiu <tvargiu@gmail.com>",
+    "homepage": "https://github.com/thomasvargiu/eventsource-ts",
+    "license": "MIT",
+    "main": "dist/index.js",
+    "typings": "dist/index.d.ts",
+    "bin": {
+        "es-package-builder": "dist/cli.js"
+    },
+    "engines": {
+        "node": ">=14"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/thomasvargiu/eventsource-ts.git"
+    },
+    "prettier": "@eventsource/eslint-config/prettierrc.json",
+    "scripts": {
+        "prebuild": "run-p clean",
+        "build": "run-p build:cjs && chmod +x ./dist/cli.js",
+        "build:cjs": "tsc -p tsconfig.cjs.json",
+        "build:dev": "run-s build",
+        "build:watch": "run-p build:cjs:watch build:esm:watch",
+        "build:cjs:watch": "tsc -p tsconfig.cjs.json -w --preserveWatchOutput",
+        "build:dev:watch": "run-s build:watch",
+        "circularDepCheck": "madge --circular src/index.ts",
+        "clean": "rimraf dist esm coverage",
+        "fix": "run-s fix:eslint fix:prettier",
+        "fix:eslint": "eslint . --format stylish --fix",
+        "fix:prettier": "prettier --write \"{src,test}/**/*.ts\"",
+        "lint": "run-s lint:prettier lint:eslint",
+        "lint:eslint": "eslint . --cache --cache-location '../../eslintcache/' --format stylish",
+        "lint:prettier": "prettier --check \"{src,test}/**/*.ts\"",
+        "pack": "npm pack",
+        "test": "jest --passWithNoTests",
+        "test:watch": "jest --passWithNoTests --watch"
+    },
+    "bugs": {
+        "url": "https://github.com/thomasvargiu/eventsource-ts/issues"
+    },
+    "dependencies": {
+        "fp-ts": "^2.11.0",
+        "yargs": "^17.3.1",
+        "glob": "^7.2.0"
+    },
+    "devDependencies": {
+        "@eventsource/eslint-config": "^0.1.0"
+    }
+}

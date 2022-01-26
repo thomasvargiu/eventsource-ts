@@ -1,0 +1,11 @@
+{
+  "preset": "ts-jest",
+  "testEnvironment": "node",
+  "transform": {
+    "^.+\\.tsx?$": "ts-jest"
+  },
+  "testRegex": "test\\/.*\\.test\\.tsx?$",
+  "collectCoverageFrom": [
+    "**/src/**"
+  ]
+}
