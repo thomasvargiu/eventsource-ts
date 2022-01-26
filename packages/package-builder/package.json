@@ -49,6 +49,5 @@
     },
     "devDependencies": {
         "@eventsource/eslint-config": "^0.1.3"
-    },
-    "gitHead": "f467420d3053dabf6f24e069c8feee8dbce0807d"
+    }
 }

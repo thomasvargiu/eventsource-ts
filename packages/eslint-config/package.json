@@ -48,7 +48,7 @@
         "eslint-plugin-unused-imports": "^2.0.0"
     },
     "publishConfig": {
-        "directory": "dist"
-    },
-    "gitHead": "f467420d3053dabf6f24e069c8feee8dbce0807d"
+        "directory": "dist",
+        "access": "public"
+    }
 }

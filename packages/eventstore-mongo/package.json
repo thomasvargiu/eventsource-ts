@@ -27,7 +27,8 @@
         "url": "https://github.com/thomasvargiu/eventsource-ts/issues"
     },
     "publishConfig": {
-        "directory": "dist"
+        "directory": "dist",
+        "access": "public"
     },
     "prettier": "@eventsource/eslint-config/prettierrc.json",
     "scripts": {
@@ -88,6 +89,5 @@
         "@eventsource/eslint-config": "^0.1.3",
         "@eventsource/eventstore-test": "^0.1.3",
         "@eventsource/package-builder": "^0.1.3"
-    },
-    "gitHead": "f467420d3053dabf6f24e069c8feee8dbce0807d"
+    }
 }
