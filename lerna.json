@@ -3,6 +3,7 @@
         "packages/*"
     ],
     "version": "independent",
+    "logLevel": "debug",
     "command": {
         "bootstrap": {
             "hoist": true
