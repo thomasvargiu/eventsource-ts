@@ -1,6 +1,6 @@
 import type { EventData, EventType } from '@eventsource/events/Event'
-import { RevisionMismatchError } from '@eventsource/eventstore'
 import type { AppendToStreamOptions } from '@eventsource/eventstore/EventStore'
+import { RevisionMismatchError } from '@eventsource/eventstore/errors'
 import { nonEmptyArray } from 'fp-ts'
 import { toError } from 'fp-ts/Either'
 import type { NonEmptyArray } from 'fp-ts/NonEmptyArray'
@@ -99,20 +99,24 @@ export const appendToStream = <E extends EventType>(
                 : RTE.of(expectedRevision !== undefined ? expectedRevision : BigInt(-1))
         ),
         RTE.bind('nextRevision', ({ currentRevision }) => RTE.of(currentRevision)),
-        RTE.bind('events', () => RTE.of(Array.isArray(events) ? events : ([events] as NonEmptyArray<EventData<E>>))),
-        RTE.chain(({ timestamp, currentRevision, nextRevision, events }) =>
-            pipe(
-                events,
-                nonEmptyArray.map(event =>
-                    eventToSchema({ streamId: stream, revision: ++nextRevision, timestamp, position: ulid() })(event)
+        RTE.bind('evs', () => RTE.of(Array.isArray(events) ? events : ([events] as NonEmptyArray<EventData<E>>))),
+        RTE.chain(({ timestamp, currentRevision, nextRevision, evs }) => {
+            let revision = nextRevision
+            return pipe(
+                evs,
+                nonEmptyArray.map(
+                    eventToSchema({ streamId: stream, revision: ++revision, timestamp, position: ulid() })
                 ),
                 writeEvents(commandOptions),
-                RTE.mapLeft(error =>
-                    error.message.startsWith('E11000')
-                        ? new RevisionMismatchError(expectedRevision || BigInt(-1), currentRevision)
-                        : error
-                ),
-                RTE.map(() => ({ revision: nextRevision + BigInt(events.length - 1) }))
+                RTE.bimap(
+                    error =>
+                        error.message.startsWith('E11000')
+                            ? new RevisionMismatchError(expectedRevision || BigInt(-1), currentRevision)
+                            : error,
+                    () => ({
+                        revision: revision + BigInt(evs.length - 1),
+                    })
+                )
             )
-        )
+        })
     )

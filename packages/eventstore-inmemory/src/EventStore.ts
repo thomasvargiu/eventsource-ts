@@ -1,5 +1,4 @@
 import type { EventData, EventType } from '@eventsource/events/Event'
-import { RevisionMismatchError } from '@eventsource/eventstore'
 import type {
     AppendToStreamOptions,
     StoreAllEvent,
@@ -11,6 +10,7 @@ import type {
     SubscribeOptions,
     SubscribeToAllOptions,
 } from '@eventsource/eventstore/EventStore'
+import { RevisionMismatchError } from '@eventsource/eventstore/errors'
 import { array } from 'fp-ts'
 import type { NonEmptyArray } from 'fp-ts/NonEmptyArray'
 import * as O from 'fp-ts/Option'

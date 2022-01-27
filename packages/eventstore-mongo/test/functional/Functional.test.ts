@@ -1,6 +1,6 @@
 import { test } from '@eventsource/eventstore-test/Functional'
 import { MongoClient } from 'mongodb'
-import * as MES from '../src/EventStore'
+import * as MES from '../../src/EventStore'
 
 describe('MongoEventStore', () => {
     const client = new MongoClient(

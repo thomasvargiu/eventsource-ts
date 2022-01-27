@@ -1,54 +1,50 @@
+import { readonlyArray } from 'fp-ts'
 import * as E from 'fp-ts/Either'
+import { eqStrict } from 'fp-ts/Eq'
 import * as J from 'fp-ts/Json'
 import * as RTE from 'fp-ts/ReaderTaskEither'
 import * as T from 'fp-ts/Task'
 import * as TE from 'fp-ts/TaskEither'
-import { pipe } from 'fp-ts/function'
+import { flow, pipe } from 'fp-ts/function'
 import * as path from 'path'
-import { fileSystem, FileSystem } from './FileSystem'
+import { fileSystem, FileSystem } from './internal/FileSystem'
+import getModulePackagePath from './internal/getModulePackagePath'
+import getPackageForFile from './internal/getPackageForFile'
 
 type Options = {
     outputFolder: string
     libFolder: string
-    es6Folder?: string
+    esmFolder?: string
     packageFile: string
     includeFiles: string[]
+    exclude: string[]
 }
 
 const defaultOptions = {
     outputFolder: 'dist',
     libFolder: 'lib',
-    es6Folder: 'es6',
+    esmFolder: 'es6',
     packageFile: 'package.json',
     includeFiles: [],
+    exclude: [],
 }
-
-const fsExists = (dir: string) => (C: FileSystem) =>
-    pipe(
-        C.stat(dir),
-        TE.match(
-            () => false,
-            () => true
-        ),
-        TE.fromTask
-    )
 
 const checkOptions =
     (options: Options = defaultOptions) =>
     (C: FileSystem) =>
         pipe(
-            options.es6Folder !== undefined
+            options.esmFolder !== undefined
                 ? pipe(
-                      C.stat(`${options.outputFolder}/${options.es6Folder}`),
+                      C.exists(`${options.outputFolder}/${options.esmFolder}`),
                       TE.match(
                           () => undefined,
-                          () => options.es6Folder
+                          () => options.esmFolder
                       )
                   )
-                : T.of(options.es6Folder),
-            T.map(es6Folder => ({
+                : T.of(options.esmFolder),
+            T.map(esmFolder => ({
                 ...options,
-                es6Folder,
+                esmFolder,
             })),
             T.map(E.right)
         )
@@ -82,57 +78,54 @@ const copyFiles =
             [...FILES, ...includeFiles],
             TE.traverseReadonlyArrayWithIndex((_, from) =>
                 pipe(
-                    fsExists(from)(C),
+                    C.exists(from),
                     TE.chain(exists => (exists ? C.copyFile(from, path.resolve(outputFolder, from)) : TE.of(undefined)))
                 )
             )
         )
 
 const makeModules =
-    (options: Options) =>
+    (outDir: string, libDir: string, excludePatterns: ReadonlyArray<string>, isEsm: boolean) =>
     (C: FileSystem): TE.TaskEither<Error, void> => {
         return pipe(
-            TE.of(options),
-            TE.map(makeSingleModule(C)),
-            TE.chain(makeSingleModuleC =>
+            TE.of(getModulePackagePath(outDir, libDir)),
+            TE.chain(getModulePackage =>
                 pipe(
-                    fileSystem.glob(`${options.outputFolder}/${options.libFolder}/*.js`),
-                    TE.map(getModules),
-                    TE.chain(TE.traverseReadonlyArrayWithIndex((_, a) => makeSingleModuleC(a))),
+                    fileSystem.glob(`${libDir}/**/*.js`),
+                    TE.chain(files =>
+                        pipe(
+                            excludePatterns,
+                            TE.traverseArray(pattern => fileSystem.glob(`${libDir}/${pattern}`)),
+                            TE.map(
+                                flow(
+                                    readonlyArray.flatten,
+                                    exclude => readonlyArray.difference<string>(eqStrict)(files, exclude),
+                                    readonlyArray.filter(file => file !== path.join(`${libDir}`, 'index.js'))
+                                )
+                            )
+                        )
+                    ),
+                    TE.chain(
+                        TE.traverseReadonlyArrayWithIndex((_, file) =>
+                            pipe(
+                                TE.of(getModulePackage(file)),
+                                TE.chain(packagefile => makeModuleForFile(packagefile, file, isEsm)(C))
+                            )
+                        )
+                    ),
                     TE.map(() => undefined)
                 )
             )
         )
     }
 
-function getModules(paths: ReadonlyArray<string>): ReadonlyArray<string> {
-    return paths.map(filePath => path.basename(filePath, '.js')).filter(x => x !== 'index')
-}
-
-function makeSingleModule(C: FileSystem): (options: Options) => (module: string) => TE.TaskEither<Error, void> {
-    return options => m =>
-        pipe(
-            C.mkdir(path.join(options.outputFolder, m)),
-            TE.chain(() => makePkgJson(m, options)),
-            TE.chain(data => C.writeFile(path.join(options.outputFolder, m, 'package.json'), data))
-        )
-}
-
-function makePkgJson(module: string, options: Options): TE.TaskEither<Error, string> {
-    return pipe(
-        JSON.stringify(
-            {
-                main: `../${options.libFolder}/${module}.js`,
-                ...(options.es6Folder ? { module: `../${options.es6Folder}/${module}.js` } : {}),
-                typings: `../${options.libFolder}/${module}.d.ts`,
-                sideEffects: false,
-            },
-            null,
-            2
-        ),
-        TE.right
+const makeModuleForFile = (packageFile: string, file: string, isEsm: boolean) => (C: FileSystem) =>
+    pipe(
+        getPackageForFile(packageFile, isEsm)(file)(C),
+        TE.chainW(content => pipe(JSON.stringify(content, null, 2), TE.right)),
+        TE.chainFirst(() => C.mkdir(path.dirname(packageFile), { recursive: true })),
+        TE.chain(content => C.writeFile(packageFile, content))
     )
-}
 
 export const build = (options: Options = defaultOptions) =>
     pipe(
@@ -140,7 +133,24 @@ export const build = (options: Options = defaultOptions) =>
         RTE.chain(opts =>
             pipe(
                 RTE.Do,
-                RTE.chain(() => makeModules(opts)),
+                RTE.chain(() =>
+                    makeModules(
+                        opts.outputFolder,
+                        path.join(opts.outputFolder, opts.libFolder),
+                        opts.exclude,
+                        opts.libFolder === opts.esmFolder
+                    )
+                ),
+                RTE.chain(() =>
+                    opts.esmFolder !== undefined && opts.libFolder !== opts.esmFolder
+                        ? makeModules(
+                              opts.outputFolder,
+                              path.join(opts.outputFolder, opts.esmFolder),
+                              opts.exclude,
+                              true
+                          )
+                        : RTE.right(undefined)
+                ),
                 RTE.chain(() => copyPackageJson(opts)),
                 RTE.chain(() => copyFiles(opts))
             )

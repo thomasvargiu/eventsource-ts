@@ -1,2 +1,2 @@
 export * as eventStore from './EventStore'
-export * from './errors'
+//export * as errors from './errors'

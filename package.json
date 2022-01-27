@@ -1,5 +1,5 @@
 {
-    "name": "root",
+    "name": "@eventsource/root",
     "private": true,
     "prettier": "@eventsource/eslint-config/prettierrc.json",
     "scripts": {
@@ -28,7 +28,7 @@
         "@types/node": "^16.11.12",
         "@types/uuid": "^8.3.4",
         "cz-conventional-changelog": "^3.3.0",
-        "eslint": "^8.4.1",
+        "eslint": "^8.7.0",
         "jest": "^27.4.7",
         "lerna": "^4.0.0",
         "lerna-templater": "^1.4.3",

@@ -25,7 +25,7 @@
     "prettier": "@eventsource/eslint-config/prettierrc.json",
     "scripts": {
         "prebuild": "run-p clean",
-        "build": "run-p build:cjs && chmod +x ./dist/cli.js && cp package.json dist/ && cp LICENSE dist/",
+        "build": "run-p build:cjs && chmod +x ./dist/cli.js && cp package.json dist/ && cp LICENSE dist/ && cp README.md dist/ && cp CHANGELOG.md dist/",
         "build:cjs": "tsc -p tsconfig.cjs.json",
         "build:dev": "run-s build",
         "build:watch": "run-p build:cjs:watch build:esm:watch",
@@ -37,14 +37,34 @@
         "fix:eslint": "eslint . --format stylish --fix",
         "fix:prettier": "prettier --write \"{src,test}/**/*.ts\"",
         "lint": "run-s lint:prettier lint:eslint",
-        "lint:eslint": "eslint . --cache --cache-location '../../eslintcache/' --format stylish",
+        "lint:eslint": "eslint . --cache --cache-location '../../.eslintcache/' --format stylish",
         "lint:prettier": "prettier --check \"{src,test}/**/*.ts\"",
         "pack": "npm pack",
-        "test": "jest --passWithNoTests",
-        "test:watch": "jest --passWithNoTests --watch"
+        "test": "jest",
+        "test:watch": "jest --watch"
     },
     "bugs": {
         "url": "https://github.com/thomasvargiu/eventsource-ts/issues"
+    },
+    "jest": {
+        "collectCoverage": true,
+        "transform": {
+            "^.+\\.ts$": "ts-jest"
+        },
+        "moduleFileExtensions": [
+            "js",
+            "ts"
+        ],
+        "testEnvironment": "node",
+        "testMatch": [
+            "**/*.test.ts"
+        ],
+        "globals": {
+            "ts-jest": {
+                "tsConfig": "./tsconfig.test.json",
+                "diagnostics": false
+            }
+        }
     },
     "dependencies": {
         "fp-ts": "^2.11.0",

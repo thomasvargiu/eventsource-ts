@@ -8,10 +8,11 @@ packages/*/node_modules
 packages/*/dist
 packages/*/docker-compose.override.yml
 packages/*/docker-compose.override.yaml
+*/.tsbuildinfo/
 coverage/
 scratch/
 node_modules/
-eslintcache/
+.eslintcache/
 *.lerna_backup
 
 npm-debug.log
@@ -19,3 +20,7 @@ lerna-debug.log
 
 docs
 lint-results.json
+
+.vscode/*
+!.vscode/extensions.json
+!.vscode/.shared.code-snippets

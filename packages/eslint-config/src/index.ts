@@ -1,10 +1,9 @@
-import { join } from 'path'
 export = {
     root: true,
     parser: '@typescript-eslint/parser',
     parserOptions: {
         ecmaVersion: 2019,
-        project: join(__dirname, './tsconfig.json'),
+        project: './tsconfig.json',
         sourceType: 'module',
     },
     plugins: ['import', 'fp-ts', 'unused-imports'],
