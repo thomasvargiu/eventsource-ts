@@ -45,6 +45,7 @@
     },
     "prettier": "@eventsource/eslint-config/prettierrc.json",
     "scripts": {
+        "prepare": "es-package-builder build",
         "prebuild": "run-p clean",
         "build": "run-p build:cjs build:esm && es-package-builder build",
         "build:cjs": "tsc -p tsconfig.cjs.json",

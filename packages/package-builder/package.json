@@ -24,6 +24,7 @@
     },
     "prettier": "@eventsource/eslint-config/prettierrc.json",
     "scripts": {
+        "prepare": "cp package.json dist/ && cp LICENSE dist/ && cp README.md dist/ && cp CHANGELOG.md dist/",
         "prebuild": "run-p clean",
         "build": "run-p build:cjs && chmod +x ./dist/cli.js && cp package.json dist/ && cp LICENSE dist/ && cp README.md dist/ && cp CHANGELOG.md dist/",
         "build:cjs": "tsc -p tsconfig.cjs.json",

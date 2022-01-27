@@ -15,6 +15,7 @@
         "url": "git+https://github.com/thomasvargiu/eventsource-ts.git"
     },
     "scripts": {
+        "prepare": "cp package.json dist/ && cp LICENSE dist/ && cp README.md dist/ && cp CHANGELOG.md dist/",
         "prebuild": "run-p clean",
         "build": "run-p build:cjs && cp .prettierrc.json dist/prettierrc.json && cp package.json dist/ && cp LICENSE dist/",
         "build:cjs": "tsc -p tsconfig.cjs.json",
