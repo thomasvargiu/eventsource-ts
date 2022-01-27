@@ -1,6 +1,11 @@
 .DS_Store
 */.DS_Store
 .idea
+
+.vscode/*
+!.vscode/extensions.json
+!.vscode/.shared.code-snippets
+
 build/
 packages/*/node_modules
 packages/*/dist
@@ -18,7 +23,3 @@ lerna-debug.log
 
 docs
 lint-results.json
-
-.vscode/*
-!.vscode/extensions.json
-!.vscode/.shared.code-snippets
