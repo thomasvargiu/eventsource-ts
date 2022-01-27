@@ -1,6 +1,6 @@
 {
     "name": "@eventsource/eventstore",
-    "version": "0.1.6",
+    "version": "0.1.7",
     "description": "Eventstore TS",
     "keywords": [
         "eventstore",
@@ -93,14 +93,14 @@
         "rxjs": "^7.0.0"
     },
     "dependencies": {
-        "@eventsource/events": "^0.1.6",
+        "@eventsource/events": "^0.1.7",
         "fp-ts": "^2.11.0",
         "tslib": "^1.9.3",
         "uuid": "^8.0.0"
     },
     "devDependencies": {
-        "@eventsource/eslint-config": "^0.1.6",
-        "@eventsource/package-builder": "^0.1.6",
+        "@eventsource/eslint-config": "^0.1.7",
+        "@eventsource/package-builder": "^0.1.7",
         "rxjs": "^7.0.0"
     }
 }
