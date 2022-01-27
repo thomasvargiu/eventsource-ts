@@ -2,8 +2,6 @@
 */.DS_Store
 .idea
 build/
-packages/*/package-lock.json
-package-lock.json
 packages/*/node_modules
 packages/*/dist
 packages/*/docker-compose.override.yml
