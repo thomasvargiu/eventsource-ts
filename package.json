@@ -3,6 +3,7 @@
     "private": true,
     "prettier": "@eventsource/eslint-config/prettierrc.json",
     "scripts": {
+        "create": "lerna-templater -n",
         "build": "lerna run --stream --concurrency 1 --sort build",
         "build:bundle": "lerna run --stream --concurrency 1 --sort build:bundle",
         "build:cjs": "lerna run --stream --concurrency 1 --sort build:cjs",
