@@ -4,13 +4,7 @@ module.exports = {
     extends: __dirname + "/packages/eslint-config/dist/node", //"@eventsource/eslint-config/node",
     root: true,
     env: {
-        es6: true,
-    },
-        parserOptions: {
-        ecmaVersion: 2018,
-    },
-    parserOptions: {
-        project: "./tsconfig.json"
+        node: true,
     },
     ignorePatterns: [
         "coverage/**",
@@ -21,7 +15,8 @@ module.exports = {
         "node_modules/**",
         "scripts/**",
         "test/manual/**",
-        ".eslintrc.js"
+        ".eslintrc.js",
+        ".eslintrc.cjs"
     ],
     overrides: [
         {
@@ -38,7 +33,7 @@ module.exports = {
         },
         {
             env: {
-                jest: true,
+                node: true,
             },
             files: ['test/**/*.ts', 'test/**/*.tsx'],
             parserOptions: {

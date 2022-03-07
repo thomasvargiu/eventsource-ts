@@ -1,10 +1,15 @@
 {
     "compilerOptions": {
-        "target": "ES2015",
-        "module": "commonjs",
-        "lib": [],
+        "baseUrl": ".",
         "outDir": "dist/lib",
-        "incremental": false,
+        "target": "es2020",
+        "module": "es2020",
+        "lib": [
+            "DOM",
+            "es2020"
+        ],
+        "incremental": true,
+        "allowSyntheticDefaultImports": true,
         "strict": true,
         "esModuleInterop": true,
         "moduleResolution": "node",
@@ -22,6 +27,7 @@
         "importsNotUsedAsValues": "error",
         "importHelpers": true,
         "stripInternal": true,
-        "noEmit": false
+        "noEmit": false,
+        "skipLibCheck": true
     }
 }

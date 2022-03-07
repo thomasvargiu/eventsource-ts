@@ -1,11 +1,7 @@
-# `event`
+# `@eventsource/eslint-config`
 
-> TODO: description
+## Install
 
-## Usage
-
-```
-const event = require('event');
-
-// TODO: DEMONSTRATE API
+```bash
+$ npm install -D @eventsource/eslint-config
 ```

@@ -11,23 +11,28 @@
     "author": "Thomas Vargiu <tvargiu@gmail.com>",
     "homepage": "https://github.com/thomasvargiu/eventsource-ts",
     "license": "MIT",
-    "main": "./lib/index.js",
+    "type": "module",
+    "main": "./index.js",
     "module": "./esm/index.js",
-    "types": "./lib/index.d.ts",
+    "types": "./index.d.ts",
     "typesVersions": {
         ">=4.2": {
             "*": [
-                "lib/*",
-                "lib/*/index.d.ts"
+                "./*",
+                "./*/index.d.ts"
             ]
         }
     },
     "exports": {
+        ".": {
+            "import": "./index.js",
+            "require": "./esm/index.js"
+        },
         "./*": {
-            "require": "./lib/*",
-            "import": "./esm/*",
-            "default": "./lib/*"
-        }
+            "import": "./*",
+            "require": "./esm/*"
+        },
+        "./internal": null
     },
     "engines": {
         "node": ">=14"
@@ -68,21 +73,15 @@
         "test:watch": "jest --watch"
     },
     "jest": {
+        "preset": "ts-jest/presets/default",
         "collectCoverage": true,
-        "transform": {
-            "^.+\\.ts$": "ts-jest"
-        },
-        "moduleFileExtensions": [
-            "js",
-            "ts"
-        ],
         "testEnvironment": "node",
         "testMatch": [
             "**/*.test.ts"
         ],
         "globals": {
             "ts-jest": {
-                "tsConfig": "./tsconfig.json",
+                "tsconfig": "./tsconfig.test.json",
                 "diagnostics": false
             }
         }

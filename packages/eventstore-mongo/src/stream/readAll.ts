@@ -1,66 +1,75 @@
-import type { EventType } from '@eventsource/events/Event'
-import type { ReadAllOptions, StreamPosition } from '@eventsource/eventstore/EventStore'
-import type * as R from 'fp-ts/Reader'
+import type { Event } from '@eventsource/eventstore/Event'
+import {
+    BACKWARDS,
+    FORWARDS,
+    ReadAllOptions,
+    ReadDirection,
+    ReadPosition,
+    START,
+} from '@eventsource/eventstore/EventStore'
+import * as O from 'fp-ts/Option'
 import { pipe } from 'fp-ts/function'
-import type { Collection, Filter } from 'mongodb'
-import { defer, from, Observable } from 'rxjs'
-import { map } from 'rxjs/operators'
-import type { MongoEvent, StoreSchema } from '../EventStore'
+import * as IX from 'ix/asynciterable'
+import * as IXO from 'ix/asynciterable/operators'
+import { Filter, Long } from 'mongodb'
+import type { StoreCollection, StoreSchema } from '../EventStore'
+import { fromReadable } from '../internal/asyncIterable/fromReadable'
 import { schemaToStoreEvent } from '../internal/schemaToStoreEvent'
 
-type Dependencies<E extends EventType> = {
-    collection: Collection<StoreSchema<E>>
-}
-
-export type MongoReadAllOptions = ReadAllOptions & {
-    toPosition?: string
+type Dependencies<E extends Event> = {
+    collection: StoreCollection<E>
     batchSize?: number
 }
 
-const position = (fromPosition?: StreamPosition) => {
-    switch (fromPosition) {
-        case 'START':
-            return ''
-        case 'END':
-            return undefined
+const getConditions = <E extends Event>(
+    fromPosition: ReadPosition,
+    direction: ReadDirection
+): O.Option<Readonly<Filter<StoreSchema<E>>>> => {
+    if (direction === BACKWARDS) {
+        switch (fromPosition) {
+            case 'START':
+                return O.none
+            case 'END':
+                return O.some({})
+        }
+
+        return O.some({
+            timestamp: { $lt: Long.fromNumber(Number(fromPosition)) },
+        } as Filter<StoreSchema<E>>)
     }
 
-    return fromPosition
+    switch (fromPosition) {
+        case 'END':
+            return O.none
+        case 'START':
+            return O.some({})
+    }
+
+    return O.some({ timestamp: { $gt: Long.fromNumber(Number(fromPosition)) } } as Filter<StoreSchema<E>>)
 }
 
 export const readAll =
-    <E extends EventType>({ maxCount, fromPosition, toPosition }: MongoReadAllOptions = {}): R.Reader<
-        Dependencies<E>,
-        Observable<MongoEvent<E>>
-    > =>
-    ({ collection }) =>
+    <E2 extends Event>({ fromPosition = START, direction = FORWARDS, maxCount, signal }: ReadAllOptions = {}) =>
+    <E extends E2>({ collection, batchSize = 1000 }: Dependencies<E>) =>
         pipe(
-            {
-                fromPos: position(fromPosition),
-                toPos: position(toPosition),
-            },
-            ({ fromPos, toPos }) =>
-                defer(() =>
-                    from(
-                        collection.find(
-                            {
-                                ...(fromPos !== undefined || toPos !== undefined
-                                    ? {
-                                          $and: [
-                                              ...(fromPos !== undefined ? [{ position: { $gt: fromPos } }] : []),
-                                              ...(toPos !== undefined ? [{ position: { $lte: toPos } }] : []),
-                                          ],
-                                      }
-                                    : {}),
-                            } as Filter<StoreSchema<E>>,
-                            {
-                                sort: { position: 1 },
-                                limit: maxCount,
-                                allowDiskUse: true,
-                                batchSize: 1000,
-                            }
-                        )
-                    )
-                ),
-            map(schemaToStoreEvent)
+            getConditions<E>(fromPosition, direction),
+            O.map(conditions =>
+                IX.defer(
+                    () =>
+                        pipe(
+                            collection
+                                .find<StoreSchema<E>>(conditions as Filter<StoreSchema<E>>, {
+                                    sort: { $natural: direction === FORWARDS ? 1 : -1 },
+                                    limit: maxCount,
+                                    allowDiskUse: true,
+                                    batchSize,
+                                })
+                                .stream(),
+                            fromReadable
+                        ) as AsyncIterable<StoreSchema<E>>
+                )
+            ),
+            O.getOrElse(() => IX.empty() as IX.AsyncIterableX<StoreSchema<E>>),
+            IXO.map(schemaToStoreEvent),
+            source => IXO.wrapWithAbort(source, signal)
         )

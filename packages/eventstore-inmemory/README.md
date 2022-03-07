@@ -1,11 +1,13 @@
-# `eventstore-inmemory`
+# `@eventsource/eventstore-inmemory`
 
-> TODO: description
+> `@eventsource/eventstore` in-memory implementation.
+
+## Install
+
+```bash
+$ npm install @eventsource/eventstore-inmemory
+```
 
 ## Usage
 
-```
-const eventstoreTs = require('eventsource-ts');
-
-// TODO: DEMONSTRATE API
-```
+Read the [`@eventsource/eventstore`](https://www.npmjs.com/package/@eventsource/eventstore) documentation.

@@ -4,6 +4,10 @@
         "src/**/*"
     ],
     "compilerOptions": {
-        "outDir": "dist/lib"
+        "baseUrl": ".",
+        "rootDir": "src",
+        "outDir": "dist",
+        "declarationDir": "dist",
+        "composite": true
     }
 }

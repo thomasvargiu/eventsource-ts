@@ -1,0 +1,14 @@
+{
+    "files": [],
+    "references": [
+        {
+            "path": "./packages/eventstore"
+        },
+        {
+            "path": "./packages/eventstore-test"
+        },
+        {
+            "path": "./packages/eventstore-mongo"
+        }
+    ]
+}

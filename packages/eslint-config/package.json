@@ -10,6 +10,10 @@
     "homepage": "https://github.com/thomasvargiu/eventsource-ts",
     "license": "MIT",
     "main": "index.js",
+    "exports": {
+        ".": "./index.js",
+        "./*": "./*"
+    },
     "repository": {
         "type": "git",
         "url": "git+https://github.com/thomasvargiu/eventsource-ts.git"
@@ -17,14 +21,12 @@
     "scripts": {
         "prepare": "cp package.json dist/ && cp LICENSE dist/ && cp README.md dist/ && cp CHANGELOG.md dist/",
         "prebuild": "run-p clean",
-        "build": "run-p build:cjs && cp .prettierrc.json dist/prettierrc.json && cp package.json dist/ && cp LICENSE dist/",
-        "build:cjs": "tsc -p tsconfig.cjs.json",
+        "build": "tsc && cp .prettierrc.json dist/prettierrc.json && cp package.json dist/ && cp LICENSE dist/",
         "build:dev": "run-s build",
-        "build:watch": "run-p build:cjs:watch build:esm:watch",
-        "build:cjs:watch": "tsc -p tsconfig.cjs.json -w --preserveWatchOutput",
+        "build:watch": "tsc -w --preserveWatchOutput",
         "build:dev:watch": "run-s build:watch",
         "circularDepCheck": "madge --circular src/index.ts",
-        "clean": "rimraf dist esm coverage",
+        "clean": "rimraf dist coverage",
         "pack": "npm pack",
         "test": "eslint ./test/. --no-eslintrc -c ./test/_config.js --ext .ts",
         "test:watch": "jest --watch"

@@ -33,8 +33,9 @@ const createMongoCollection =
                         TE.tryCatch(
                             () =>
                                 collection.createIndexes([
-                                    { key: { streamId: 1, revision: 1 }, unique: true },
-                                    { key: { position: 1 } },
+                                    { key: { stream: 1, revision: 1 }, unique: true },
+                                    { key: { id: 1 }, unique: true },
+                                    { key: { timestamp: 1 } },
                                 ]),
                             toError
                         )

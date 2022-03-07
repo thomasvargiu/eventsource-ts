@@ -3,6 +3,7 @@ import { create } from '../../src/EventStore'
 
 describe('InMemoryEventStore', () => {
     const es = create()
+    const eventStoreProvider = () => es
 
-    test({ es })
+    test({ eventStoreProvider })
 })

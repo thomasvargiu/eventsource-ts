@@ -1,7 +1,7 @@
 {
     "name": "@eventsource/eventstore-inmemory",
     "version": "0.1.7",
-    "description": "Eventstore inmemory",
+    "description": "In-memory Eventstore",
     "keywords": [
         "eventstore",
         "eventsource",
@@ -11,23 +11,28 @@
     "author": "Thomas Vargiu <tvargiu@gmail.com>",
     "homepage": "https://github.com/thomasvargiu/eventsource-ts",
     "license": "MIT",
-    "main": "./lib/index.js",
+    "type": "module",
+    "main": "./index.js",
     "module": "./esm/index.js",
-    "types": "./lib/index.d.ts",
+    "types": "./index.d.ts",
     "typesVersions": {
         ">=4.2": {
             "*": [
-                "lib/*",
-                "lib/*/index.d.ts"
+                "./*",
+                "./*/index.d.ts"
             ]
         }
     },
     "exports": {
+        ".": {
+            "import": "./index.js",
+            "require": "./esm/index.js"
+        },
         "./*": {
-            "require": "./lib/*",
-            "import": "./esm/*",
-            "default": "./lib/*"
-        }
+            "import": "./*",
+            "require": "./esm/*"
+        },
+        "./internal": null
     },
     "engines": {
         "node": ">=14"
@@ -45,16 +50,13 @@
     },
     "prettier": "@eventsource/eslint-config/prettierrc.json",
     "scripts": {
-        "prepare": "es-package-builder build",
-        "prebuild": "run-p clean",
-        "build": "run-p build:cjs build:esm && es-package-builder build",
-        "build:cjs": "tsc -p tsconfig.cjs.json",
+        "prepare": "mkdir -p dist && cp package.json LICENSE README.md CHANGELOG.md dist/ && rm -f *.tsbuildinfo",
+        "prebuild": "run-s clean prepare",
+        "build": "npm run compile --",
         "build:dev": "run-s build",
-        "build:esm": "tsc -p tsconfig.esm.json",
-        "build:watch": "run-p build:cjs:watch build:esm:watch",
-        "build:cjs:watch": "tsc -p tsconfig.cjs.json -w --preserveWatchOutput",
+        "build:watch": "npm run build -- -w --preserveWatchOutput",
         "build:dev:watch": "run-s build:watch",
-        "build:esm:watch": "tsc -p tsconfig.esm.json -w --preserveWatchOutput",
+        "compile": "tsc -b ./tsconfig.esm.json ./tsconfig.cjs.json",
         "circularDepCheck": "madge --circular src/index.ts",
         "clean": "rimraf dist esm coverage",
         "fix": "run-s fix:eslint fix:prettier",
@@ -68,40 +70,32 @@
         "test:watch": "jest --watch"
     },
     "jest": {
+        "preset": "ts-jest/presets/default",
         "collectCoverage": true,
-        "transform": {
-            "^.+\\.ts$": "ts-jest"
-        },
-        "moduleFileExtensions": [
-            "js",
-            "ts"
-        ],
         "testEnvironment": "node",
         "testMatch": [
             "**/*.test.ts"
         ],
         "globals": {
             "ts-jest": {
-                "tsConfig": "./tsconfig.json",
+                "tsconfig": "./tsconfig.test.json",
                 "diagnostics": false
             }
         }
     },
     "sideEffects": false,
-    "peerDependencies": {
-        "rxjs": "^7.0.0"
-    },
     "dependencies": {
-        "@eventsource/events": "^0.1.7",
         "@eventsource/eventstore": "^0.1.7",
         "fp-ts": "^2.11.0",
-        "tslib": "^1.9.3",
-        "uuid": "^8.0.0"
+        "ix": "^4.5.2",
+        "tslib": "^1.9.3 || ^2.3",
+        "uuid": "^8.0.0",
+        "rxjs": "^7.0.0"
     },
     "devDependencies": {
         "@eventsource/eslint-config": "^0.1.7",
         "@eventsource/eventstore-test": "^0.1.7",
-        "@eventsource/package-builder": "^0.1.7",
-        "rxjs": "^7.0.0"
+        "@types/jest": "^27.4.1",
+        "jest": "^27.5.1"
     }
 }

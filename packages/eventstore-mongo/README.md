@@ -1,11 +1,13 @@
-# `eventsource-ts-mongo`
+# `@eventsource/eventstore-mongo`
 
-> TODO: description
+> `@eventsource/eventstore` implementation for MongoDB.
+
+## Install
+
+```bash
+$ npm install @eventsource/eventstore-mongo
+```
 
 ## Usage
 
-```
-const eventstoreTsMongo = require('eventsource-ts-mongo');
-
-// TODO: DEMONSTRATE API
-```
+Read the [`@eventsource/eventstore`](https://www.npmjs.com/package/@eventsource/eventstore) documentation.

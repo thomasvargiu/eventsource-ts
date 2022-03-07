@@ -11,7 +11,8 @@ packages/*/node_modules
 packages/*/dist
 packages/*/docker-compose.override.yml
 packages/*/docker-compose.override.yaml
-*/.tsbuildinfo/
+*/.tsbuildinfo
+packages/*/.tsbuildinfo
 coverage/
 scratch/
 node_modules/

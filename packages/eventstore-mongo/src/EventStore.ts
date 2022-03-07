@@ -1,53 +1,44 @@
-import type { EventData, EventType } from '@eventsource/events/Event'
-import type { StoreAllEvent, StoreEvent, SubscribableEventStore } from '@eventsource/eventstore/EventStore'
-import type { Reader } from 'fp-ts/Reader'
-import type { TaskEither } from 'fp-ts/TaskEither'
-import type { Collection, MongoClient, Long } from 'mongodb'
-import type { Observable } from 'rxjs'
+import type { Event } from '@eventsource/eventstore/Event'
+import type { SubscribableEventStore, StoreAllEvent } from '@eventsource/eventstore/EventStore'
+import type { MongoClient, Long, Collection } from 'mongodb'
 import { appendToStream } from './stream/appendToStream'
 import { deleteStream } from './stream/deleteStream'
 import { readAll } from './stream/readAll'
-import { readFromStream } from './stream/readFromStream'
+import { readStream } from './stream/readStream'
 import { subscribe } from './stream/subscribe'
-import { MongoSubscribeToAllOptions, subscribeToAll } from './stream/subscribeToAll'
+import { subscribeToAll } from './stream/subscribeToAll'
 export { createCollection as createCollectionIfNotExists } from './createCollection'
 
-export type MongoEvent<E extends EventType = EventType> = StoreEvent<E> & {
-    position: string
-}
+export type MongoEvent<E extends Event = Event> = StoreAllEvent<E>
 
-export type MongoAllEvent<E extends EventType = EventType> = StoreAllEvent<MongoEvent<E>>
-
-export type StoreSchema<E extends EventType = EventType> = EventData<E> & {
-    streamId: string
+export type StoreSchema<E extends Event = Event> = {
+    id: E['id']
+    type: E['type']
+    data: E['data']
+    metadata: E['metadata']
+    stream: string
     timestamp: Long
     revision: Long
-    position: string
 }
 
-export type StoreCollection<E extends EventType = EventType> = Collection<StoreSchema<E>>
+export type StoreCollection<E extends Event> = Collection<StoreSchema<E>>
 
-export type Dependencies<E extends EventType = EventType> = {
+export type Dependencies<E extends Event = Event> = {
     client: MongoClient
     collection: Collection<StoreSchema<E>>
+    clockSkew?: number
+    batchSize?: number
+    /**
+     * Used on subscribeToAll, is the minimum timestamp (ms) from read on
+     */
+    subscribeStart?: number
 }
 
-export type MongoEventStore<E extends EventType> = SubscribableEventStore<E, MongoEvent<E>, MongoAllEvent<E>> & {
-    deleteStream: (stream: string) => TaskEither<Error, void>
-    subscribeToAll: (options?: MongoSubscribeToAllOptions) => Observable<MongoEvent<E> & { position: string }>
-}
-
-const reverseReader =
-    <A extends readonly unknown[], B, R>(func: (...a: A) => Reader<R, B>): Reader<R, (...a: A) => B> =>
-    (r: R) =>
-    (...a: A) =>
-        func(...a)(r)
-
-export const create = <E extends EventType>(dependencies: Dependencies<E>): MongoEventStore<E> => ({
-    appendToStream: reverseReader(appendToStream)(dependencies),
-    readFromStream: reverseReader(readFromStream)(dependencies),
-    deleteStream: reverseReader(deleteStream)(dependencies),
-    subscribe: reverseReader(subscribe)(dependencies),
-    readAll: reverseReader(readAll)(dependencies),
-    subscribeToAll: reverseReader(subscribeToAll)(dependencies),
+export const create = <E extends Event = Event>(dependencies: Dependencies<E>): SubscribableEventStore<E> => ({
+    readStream: options => readStream<E>(options)(dependencies),
+    readAll: options => readAll<E>(options)(dependencies),
+    appendToStream: options => events => appendToStream<E>(options)(events)(dependencies),
+    deleteStream: options => deleteStream<E>(options)(dependencies),
+    subscribe: options => subscribe<E>(options)(dependencies),
+    subscribeToAll: options => subscribeToAll<E>(options)(dependencies),
 })

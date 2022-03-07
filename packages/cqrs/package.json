@@ -1,0 +1,95 @@
+{
+    "name": "@eventsource/cqrs",
+    "version": "0.1.0",
+    "private": true,
+    "description": "CQRS module",
+    "keywords": [
+        "eventstore",
+        "eventsource",
+        "events",
+        "functional"
+    ],
+    "author": "Thomas Vargiu <tvargiu@gmail.com>",
+    "homepage": "https://github.com/thomasvargiu/eventsource-ts",
+    "license": "MIT",
+    "type": "module",
+    "main": "./index.js",
+    "module": "./esm/index.js",
+    "types": "./index.d.ts",
+    "typesVersions": {
+        ">=4.2": {
+            "*": [
+                "./*",
+                "./*/index.d.ts"
+            ]
+        }
+    },
+    "exports": {
+        ".": {
+            "import": "./index.js",
+            "require": "./esm/index.js"
+        },
+        "./*": {
+            "import": "./*",
+            "require": "./esm/*"
+        },
+        "./internal": null
+    },
+    "engines": {
+        "node": ">=14"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/thomasvargiu/eventsource-ts.git"
+    },
+    "bugs": {
+        "url": "https://github.com/thomasvargiu/eventsource-ts/issues"
+    },
+    "publishConfig": {
+        "directory": "dist",
+        "access": "public"
+    },
+    "prettier": "@eventsource/eslint-config/prettierrc.json",
+    "scripts": {
+        "prepare": "mkdir -p dist && cp package.json LICENSE README.md CHANGELOG.md dist/ && rm -f *.tsbuildinfo",
+        "prebuild": "run-s clean prepare",
+        "build": "npm run compile --",
+        "build:dev": "run-s build",
+        "build:watch": "npm run build -- -w --preserveWatchOutput",
+        "build:dev:watch": "run-s build:watch",
+        "compile": "tsc -b ./tsconfig.esm.json ./tsconfig.cjs.json",
+        "circularDepCheck": "madge --circular src/index.ts",
+        "clean": "rimraf dist esm coverage",
+        "fix": "run-s fix:eslint fix:prettier",
+        "fix:eslint": "eslint . --format stylish --fix",
+        "fix:prettier": "prettier --write \"{src,test}/**/*.ts\"",
+        "lint": "run-s lint:prettier lint:eslint",
+        "lint:eslint": "eslint . --cache --cache-location '../../.eslintcache/' --format stylish",
+        "lint:prettier": "prettier --check \"{src,test}/**/*.ts\"",
+        "pack": "npm pack",
+        "test": "jest",
+        "test:watch": "jest --watch"
+    },
+    "jest": {
+        "preset": "ts-jest/presets/default",
+        "collectCoverage": true,
+        "testEnvironment": "node",
+        "testMatch": [
+            "**/*.test.ts"
+        ],
+        "globals": {
+            "ts-jest": {
+                "tsconfig": "./tsconfig.test.json",
+                "diagnostics": false
+            }
+        }
+    },
+    "sideEffects": false,
+    "dependencies": {
+        "fp-ts": "^2.11.0",
+        "tslib": "^1.9.3 || ^2.3"
+    },
+    "devDependencies": {
+        "@eventsource/eslint-config": "^0.1.7"
+    }
+}

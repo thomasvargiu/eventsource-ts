@@ -1,4 +1,4 @@
-export = {
+module.exports = {
     plugins: ['node'],
     extends: ['./index.js', 'plugin:node/recommended'],
     parserOptions: {

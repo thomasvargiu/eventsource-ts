@@ -1,19 +1,18 @@
-export = {
+module.exports = {
     root: true,
     parser: '@typescript-eslint/parser',
     parserOptions: {
-        ecmaVersion: 2019,
+        ecmaVersion: 2020,
         project: './tsconfig.json',
-        sourceType: 'module',
     },
     plugins: ['import', 'fp-ts', 'unused-imports'],
     extends: [
         'eslint:recommended',
-        'plugin:@typescript-eslint/recommended',
         'prettier',
         'plugin:prettier/recommended',
         'plugin:rxjs/recommended',
         'plugin:fp-ts/all',
+        'plugin:@typescript-eslint/recommended',
     ],
     rules: {
         complexity: 'off',
@@ -58,21 +57,6 @@ export = {
         'prefer-template': 'error',
         'wrap-iife': ['error', 'inside'],
 
-        '@typescript-eslint/no-namespace': 'warn',
-        '@typescript-eslint/consistent-type-definitions': 'off',
-        '@typescript-eslint/no-empty-interface': 'off',
-        '@typescript-eslint/explicit-function-return-type': 'off',
-        '@typescript-eslint/explicit-module-boundary-types': 'off',
-        '@typescript-eslint/no-explicit-any': 'off', // https://github.com/typescript-eslint/typescript-eslint/issues/1071,
-        '@typescript-eslint/unified-signatures': 'error',
-        '@typescript-eslint/no-unused-vars': [
-            'warn',
-            {
-                argsIgnorePattern: '^_',
-            },
-        ],
-        '@typescript-eslint/no-shadow': ['error', { hoist: 'all', ignoreTypeValueShadow: true }],
-
         'prettier/prettier': 'error',
 
         'import/no-deprecated': 'error',
@@ -101,5 +85,20 @@ export = {
             'warn',
             { vars: 'all', varsIgnorePattern: '^_', args: 'after-used', argsIgnorePattern: '^_' },
         ],
+
+        '@typescript-eslint/no-namespace': 'warn',
+        '@typescript-eslint/consistent-type-definitions': 'off',
+        '@typescript-eslint/no-empty-interface': 'off',
+        '@typescript-eslint/explicit-function-return-type': 'off',
+        '@typescript-eslint/explicit-module-boundary-types': 'off',
+        '@typescript-eslint/no-explicit-any': 'off', // https://github.com/typescript-eslint/typescript-eslint/issues/1071,
+        '@typescript-eslint/unified-signatures': 'error',
+        '@typescript-eslint/no-unused-vars': [
+            'warn',
+            {
+                argsIgnorePattern: '^_',
+            },
+        ],
+        '@typescript-eslint/no-shadow': ['error', { hoist: 'all', ignoreTypeValueShadow: true }],
     },
 }

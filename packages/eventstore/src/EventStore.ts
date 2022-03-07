@@ -1,80 +1,89 @@
-import type { EventData, EventType } from '@eventsource/events/Event'
-import * as E from 'fp-ts/Either'
-import type { NonEmptyArray } from 'fp-ts/NonEmptyArray'
 import type { TaskEither } from 'fp-ts/TaskEither'
-import * as TE from 'fp-ts/TaskEither'
-import { pipe } from 'fp-ts/function'
-import { defer, from, lastValueFrom, Observable } from 'rxjs'
-import * as RXO from 'rxjs/operators'
+import type { Event, EventOf } from './Event'
 
-export type StoreEvent<E extends EventType = EventType> = {
-    event: EventData<E>
-    streamId: string
+// stream status
+export const ANY = 'ANY' as const
+export const STREAM_EXISTS = 'STREAM_EXISTS' as const
+export const NO_STREAM = 'NO_STREAM' as const
+
+// positions
+export const START = 'START' as const
+export const END = 'END' as const
+
+// directions
+export const FORWARDS = 'FORWARDS' as const
+export const BACKWARDS = 'BACKWARDS' as const
+
+export type ReadDirection = typeof FORWARDS | typeof BACKWARDS
+export type ReadRevision = typeof START | typeof END | bigint
+export type ReadPosition = typeof START | typeof END | string
+export type ExpectedRevision = typeof ANY | typeof NO_STREAM | bigint
+export type AppendExpectedRevision = typeof STREAM_EXISTS | ExpectedRevision
+export type CurrentRevision = typeof NO_STREAM | bigint
+
+export type StoreEvent<E extends Event = Event> = {
+    event: EventOf<E>
+    stream: string
     timestamp: number
     revision: bigint
 }
 
-export type StoreAllEvent<E extends StoreEvent = StoreEvent> = E & {
+export type StoreAllEvent<E extends Event = Event> = StoreEvent<E> & {
     position: string
 }
 
 export type AppendResult = {
     revision: bigint
 }
-export type ReadFromStreamOptions = {
-    fromRevision?: bigint
-    maxCount?: number
-}
-export type ReadAllOptions = {
-    fromPosition?: StreamPosition
-    maxCount?: number
+export type ReadOptions = {
+    signal?: AbortSignal
 }
 export type AppendToStreamOptions = {
-    expectedRevision?: bigint
+    stream: string
+    expectedRevision?: ExpectedRevision
 }
-export type SubscribeOptions = {
-    fromRevision?: bigint
+export type ReadFromStreamOptions = ReadOptions & {
+    stream: string
+    fromRevision?: ReadRevision
+    direction?: ReadDirection
+    maxCount?: number
+}
+export type ReadAllOptions = ReadOptions & {
+    fromPosition?: ReadPosition
+    direction?: ReadDirection
+    maxCount?: number
 }
 
-export type StreamPosition = 'START' | 'END' | string
-export type SubscribeToAllOptions = {
-    fromPosition?: StreamPosition
+export type SubscribeOptions = ReadOptions & {
+    stream: string
+    fromRevision?: ReadRevision
+}
+export type SubscribeToAllOptions = ReadOptions & {
+    fromPosition?: ReadPosition
+}
+
+export type DeleteStreamOptions = {
+    stream: string
 }
 
 export type EventStore<
-    E extends EventType = EventType,
-    ESE extends StoreEvent<E> = StoreEvent<E>,
-    ESAE extends StoreAllEvent<StoreEvent<E>> = StoreAllEvent<ESE>,
-    ER extends Error = Error
+    E extends Event = Event,
+    SE extends StoreEvent<E> = StoreEvent<E>,
+    SAE extends StoreAllEvent<E> = StoreAllEvent<E>
 > = {
-    readFromStream: (streamId: string, options?: ReadFromStreamOptions) => Observable<ESE>
-    readAll: (options?: ReadAllOptions) => Observable<ESAE>
+    readStream: (options: ReadFromStreamOptions) => AsyncIterable<SE>
+    readAll: (options?: ReadAllOptions) => AsyncIterable<SAE>
     appendToStream: (
-        streamId: string,
-        events: EventData<E> | NonEmptyArray<EventData<E>>,
-        options?: AppendToStreamOptions
-    ) => TaskEither<ER, AppendResult>
-    deleteStream: (streamId: string) => TE.TaskEither<Error, void>
+        options: AppendToStreamOptions
+    ) => (events: E | ReadonlyArray<E>) => TaskEither<Error, AppendResult>
+    deleteStream: (options: DeleteStreamOptions) => TaskEither<Error, void>
 }
 
 export type SubscribableEventStore<
-    E extends EventType = EventType,
-    ESE extends StoreEvent<E> = StoreEvent<E>,
-    ESAE extends StoreAllEvent<StoreEvent<E>> = StoreAllEvent<ESE>,
-    ER extends Error = Error
-> = EventStore<E, ESE, ESAE, ER> & {
-    subscribe: (stream: string, options?: SubscribeOptions) => Observable<ESE>
-    subscribeToAll: (options?: SubscribeToAllOptions) => Observable<ESAE>
+    E extends Event = Event,
+    SE extends StoreEvent<E> = StoreEvent<E>,
+    SAE extends StoreAllEvent<E> = StoreAllEvent<E>
+> = EventStore<E, SE, SAE> & {
+    subscribe: (options: SubscribeOptions) => AsyncIterable<SE>
+    subscribeToAll: (options?: SubscribeToAllOptions) => AsyncIterable<SAE>
 }
-
-export const toTaskEither = <A>(input: Observable<A>) =>
-    pipe(input, RXO.toArray(), o$ => TE.tryCatch(() => lastValueFrom(o$, { defaultValue: [] as A[] }), E.toError))
-
-export const fromTaskEither = <E, A>(taskEither: TE.TaskEither<E, A>) => pipe(defer(() => from(taskEither())))
-
-/*
-[events, revision] <- readFromStream('user-1')
-aggregate <- replay(aggregato)(events)
-events <- decide(aggregate, command)
-newRevision <- appendToStream('user-1', events, revision)
-*/

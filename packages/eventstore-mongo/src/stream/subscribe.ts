@@ -1,78 +1,68 @@
-import type { EventType } from '@eventsource/events/Event'
-import type { SubscribeOptions } from '@eventsource/eventstore/EventStore'
+import type { Event } from '@eventsource/eventstore/Event'
+import { END, ReadRevision, SubscribeOptions } from '@eventsource/eventstore/EventStore'
 import * as R from 'fp-ts/Reader'
-import { flow, pipe } from 'fp-ts/function'
-import { ChangeStreamOptions, Collection, Long, Timestamp } from 'mongodb'
-import { concat, defer, Observable } from 'rxjs'
-import { map, switchMap } from 'rxjs/operators'
-import type { MongoEvent, StoreSchema } from '../EventStore'
+import * as RTE from 'fp-ts/ReaderTaskEither'
+import * as TE from 'fp-ts/TaskEither'
+import { flow, identity, pipe } from 'fp-ts/function'
+import * as IX from 'ix/asynciterable'
+import * as IXO from 'ix/asynciterable/operators'
+import { ChangeStreamOptions, Long } from 'mongodb'
+import type { MongoEvent } from '../EventStore'
+import { timestampFromMs } from '../internal/Timestamp'
 import { schemaToStoreEvent } from '../internal/schemaToStoreEvent'
-import { taskEitherToObservable } from '../internal/taskToObservable'
 import { genericSubscribe } from './genericSubscribe'
 import { getStreamRevision } from './getStreamRevision'
-import { readFromStream } from './readFromStream'
+import { readStream } from './readStream'
 
-type Dependencies<E extends EventType> = {
-    collection: Collection<StoreSchema<E>>
-}
-
-export type MongoSubscribeOptions = SubscribeOptions & {
-    batchSize?: number
-}
-
-const startSubscribe = <E extends EventType>(
-    streamId: string,
-    currentRevision?: bigint,
-    options?: ChangeStreamOptions
-) =>
+const startSubscribe = <E extends Event>(stream: string, currentRevision?: bigint, options?: ChangeStreamOptions) =>
     pipe(
-        R.Do,
-        R.chain(() =>
-            genericSubscribe<E>(
-                {
-                    'fullDocument.streamId': streamId,
-                    ...(currentRevision ? { 'fullDocument.revision': { $gt: Long.fromBigInt(currentRevision) } } : {}),
-                },
-                options
-            )
+        genericSubscribe<E>(
+            {
+                'fullDocument.stream': stream,
+                ...(currentRevision ? { 'fullDocument.revision': { $gt: Long.fromBigInt(currentRevision) } } : {}),
+            },
+            options
         ),
         R.map(
             flow(
-                map(({ fullDocument }) => fullDocument),
-                map(schemaToStoreEvent)
+                IXO.map(({ fullDocument }) => fullDocument),
+                IXO.map(schemaToStoreEvent)
             )
         )
     )
 
-export const subscribe = <E extends EventType>(
-    stream: string,
-    { fromRevision, batchSize = 1000 }: MongoSubscribeOptions = {}
-): R.Reader<Dependencies<E>, Observable<MongoEvent<E>>> =>
+const startSubscribeFrom = <E extends Event>(stream: string, revision: bigint) =>
     pipe(
-        undefined === fromRevision
+        ({ clockSkew = 60 } = {}) =>
+            startSubscribe<E>(stream, revision, {
+                startAtOperationTime: timestampFromMs(Date.now() - clockSkew * 1000),
+            }),
+        R.flattenW
+    )
+
+const readFromStream = <E extends Event>(stream: string, fromRevision: ReadRevision, currentRevision: bigint) =>
+    pipe(
+        readStream<E>({ stream, fromRevision }), //
+        R.map(IXO.filter<MongoEvent<E>>(event => event.revision <= currentRevision))
+    )
+
+const startSubscriber = <E extends Event>(stream: string, fromRevision: ReadRevision, currentRevision: bigint) =>
+    pipe(
+        R.Do,
+        R.bindW('o2$', () => startSubscribeFrom<E>(stream, currentRevision)),
+        R.bindW('o1$', () => readFromStream<E>(stream, fromRevision, currentRevision)),
+        R.map(({ o1$, o2$ }) => IX.concat(o1$, o2$))
+    )
+
+export const subscribe = <E extends Event>({ stream, fromRevision = END, signal }: SubscribeOptions) =>
+    pipe(
+        fromRevision === END
             ? startSubscribe<E>(stream)
             : pipe(
-                  R.ask<Dependencies<E>>(),
-                  R.map(deps =>
-                      defer(() =>
-                          pipe(
-                              getStreamRevision(stream)(deps),
-                              taskEitherToObservable,
-                              switchMap(currentRevision =>
-                                  concat(
-                                      readFromStream<E>(stream, {
-                                          fromRevision,
-                                          toRevision: currentRevision,
-                                          batchSize,
-                                      })(deps),
-                                      startSubscribe<E>(stream, currentRevision, {
-                                          batchSize,
-                                          startAtOperationTime: new Timestamp({ t: Date.now() / 1000 - 60, i: 0 }),
-                                      })(deps)
-                                  )
-                              )
-                          )
-                      )
-                  )
-              )
+                  getStreamRevision<E>(stream),
+                  RTE.chainReaderKW(currentRevision => startSubscriber<E>(stream, fromRevision, currentRevision)),
+                  R.map(TE.match(IX.throwError, identity)),
+                  R.map(IX.defer)
+              ),
+        R.map(source => IXO.wrapWithAbort(source, signal))
     )

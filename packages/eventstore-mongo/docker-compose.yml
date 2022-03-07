@@ -1,0 +1,24 @@
+version: "3.6"
+
+services:
+  test:
+    image: node:16-alpine
+    depends_on:
+      - mongo
+    volumes:
+      - ../../:/app
+    working_dir: /app/packages/eventstore-mongo
+    environment:
+      MONGO_URL: 'mongodb://mongo:27017/eventstore?replicaSet=rs0&writeConcern=majority'
+    entrypoint:
+      - npx
+      - jest
+      - --coverage=false
+
+  mongo:
+   build: ./docker/mongo
+   command:
+     - --replSet
+     - rs0
+     - --oplogSize
+     - "1"

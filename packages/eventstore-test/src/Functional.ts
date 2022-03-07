@@ -1,162 +1,405 @@
-import { event, EventData } from '@eventsource/events/Event'
-import { EventStore, fromTaskEither, SubscribableEventStore, toTaskEither } from '@eventsource/eventstore/EventStore'
-import { array, nonEmptyArray } from 'fp-ts'
+import { event, Event } from '@eventsource/eventstore/Event'
+import { EventStore, NO_STREAM, SubscribableEventStore } from '@eventsource/eventstore/EventStore'
+import { RevisionMismatchError, StreamNotFoundError } from '@eventsource/eventstore/errors'
+import { io, readonlyArray, readonlyNonEmptyArray } from 'fp-ts'
 import * as E from 'fp-ts/Either'
-import type { NonEmptyArray } from 'fp-ts/NonEmptyArray'
+import type { ReadonlyNonEmptyArray } from 'fp-ts/ReadonlyNonEmptyArray'
+import * as T from 'fp-ts/Task'
 import * as TE from 'fp-ts/TaskEither'
-import { constTrue, flow, pipe } from 'fp-ts/function'
-import * as RX from 'rxjs'
-import * as RXO from 'rxjs/operators'
+import { constTrue, pipe } from 'fp-ts/function'
+import { AbortError, throwIfAborted } from 'ix/aborterror'
+import * as IX from 'ix/asynciterable'
+import * as IXO from 'ix/asynciterable/operators'
 import { v4 as uuid } from 'uuid'
 import * as assert from 'assert'
+//import { AbortError } from 'ix/aborterror';
 
-type Options = {
-    es: SubscribableEventStore
+type Options<ES extends SubscribableEventStore> = {
+    eventStoreProvider: () => ES
 }
 
-export type DefaultEvent = EventData & {
+export type DefaultEvent = Event & {
     metadata: {
         revision: number
     }
 }
 
-export const defaultEvents: NonEmptyArray<DefaultEvent> = [
-    event({
-        type: 'Created',
-        data: { foo: 'foo' },
-        metadata: { revision: 0 },
-    })(),
-    event({
-        type: 'Updated',
-        data: { foo: 'foo1' },
-        metadata: { revision: 1 },
-    })(),
-    event({
-        type: 'Updated',
-        data: { foo: 'foo2' },
-        metadata: {
-            revision: 2,
-            bar: 'bar1',
-        },
-    })(),
-]
-
-const writeDefaultEvents = (streamId: string) => (es: EventStore) =>
+export const getDefaultEvents = () =>
     pipe(
-        defaultEvents,
-        nonEmptyArray.traverseWithIndex(TE.ApplicativeSeq)((i, e) =>
-            es.appendToStream(streamId, e, { expectedRevision: BigInt(i - 1) })
-        ),
-        TE.map(nonEmptyArray.last)
+        [
+            event({
+                type: 'Created',
+                data: { foo: 'foo' },
+                metadata: { revision: 0 },
+            }),
+            event({
+                type: 'Updated',
+                data: { foo: 'foo1' },
+                metadata: { revision: 1 },
+            }),
+            event({
+                type: 'Updated',
+                data: { foo: 'foo2' },
+                metadata: {
+                    revision: 2,
+                    bar: 'bar1',
+                },
+            }),
+        ] as ReadonlyNonEmptyArray<() => DefaultEvent>,
+        io.traverseReadonlyNonEmptyArrayWithIndex((_, e) => e)
     )
 
-const getDefaultEventsExpectations = (streamId: string, filter: (e: DefaultEvent) => boolean = constTrue) =>
+const writeDefaultEvents = (stream: string) => (es: EventStore) =>
     pipe(
-        defaultEvents,
-        array.filter(filter),
-        array.map(e =>
+        TE.fromIO<ReadonlyNonEmptyArray<DefaultEvent>, Error>(getDefaultEvents()),
+        TE.chain(
+            readonlyNonEmptyArray.traverseWithIndex(TE.ApplicativeSeq)((i, e) =>
+                es.appendToStream({ stream, expectedRevision: BigInt(i - 1) })(e)
+            )
+        ),
+        TE.map(readonlyNonEmptyArray.last)
+    )
+
+const getDefaultEventsExpectations = (stream: string, filter: (e: DefaultEvent) => boolean = constTrue) =>
+    pipe(
+        getDefaultEvents()(),
+        readonlyArray.filter(filter),
+        readonlyArray.map(e =>
             expect.objectContaining({
                 event: expect.objectContaining({
                     type: e.type,
                     data: e.data,
                     metadata: e.metadata,
                 }),
-                streamId,
+                stream,
                 revision: BigInt(e.metadata.revision),
             })
-        )
+        ),
+        readonlyArray.toArray
     )
 
-const delayedAppendtoStream =
-    (es: EventStore) =>
-    (timer = 0) =>
-        flow(es.appendToStream, f =>
-            pipe(
-                RX.timer(timer),
-                RX.switchMap(() => RX.from(f())),
-                RXO.switchMap(() => RX.EMPTY)
-            )
-        )
+const streamToTaskEither = <A>(input: AsyncIterable<A>): TE.TaskEither<Error, A[]> => {
+    const controller = new AbortController()
+    return pipe(
+        TE.tryCatch(() => pipe(input, IXO.withAbort(controller.signal), IX.toArray), E.toError),
+        T.chainFirst(() => T.of(controller.abort()))
+    )
+}
 
-const toPromise = <A>(input: RX.Observable<A>): Promise<A[]> => pipe(input, RXO.toArray(), o$ => RX.lastValueFrom(o$))
+const taskEitherToStream = <A>(input: TE.TaskEither<Error, A>): AsyncIterable<A> =>
+    pipe(
+        IX.defer(signal => {
+            throwIfAborted(signal)
+
+            return pipe(input, TE.match(IX.throwError, IX.of), task => IX.from(task()), IXO.mergeAll())
+        })
+    )
+
+const tapOnFirst: <A>(f: (a: A) => any) => (am: AsyncIterable<A>) => AsyncIterable<A> = f => {
+    let done = false
+
+    return IXO.tap(a => {
+        done || f(a)
+        done = true
+    })
+}
 
 const generateStreamId = () => `resource-${uuid()}`
 
-export const test = ({ es }: Options) => {
-    let streamId = generateStreamId()
+export const test = <ES extends SubscribableEventStore>({ eventStoreProvider }: Options<ES>) => {
+    let stream = generateStreamId()
+    let stream2 = generateStreamId()
+    let es = eventStoreProvider()
 
     beforeEach(() => {
-        streamId = generateStreamId()
+        stream = generateStreamId()
+        stream2 = generateStreamId()
+        es = eventStoreProvider()
     })
 
     afterEach(async () => {
-        await es.deleteStream(streamId)()
+        await es.deleteStream({ stream })()
+        await es.deleteStream({ stream: stream2 })()
     })
 
     it('should write events', async () => {
-        const app = writeDefaultEvents(streamId)(es)
+        const app = writeDefaultEvents(stream)(es)
 
         const result = await app()
-        assert.ok(E.isRight(result))
-        assert.deepEqual(result.right, { revision: BigInt(2) })
+        expect(result).toStrictEqual(E.right({ revision: BigInt(2) }))
     })
 
-    it('should read events', async () => {
+    it('should write events in append-only', async () => {
         const app = pipe(
-            writeDefaultEvents(streamId)(es),
-            TE.chain(() => pipe(es.readFromStream(streamId), toTaskEither))
+            es.appendToStream({ stream })(event({ type: 'Event1', data: {} })()),
+            TE.chain(() => es.appendToStream({ stream })(event({ type: 'Event2', data: {} })())),
+            TE.chain(() => es.appendToStream({ stream })(event({ type: 'Event3', data: {} })()))
         )
 
         const result = await app()
-        assert.ok(E.isRight(result))
-        expect(result.right).toEqual(getDefaultEventsExpectations(streamId))
+        expect(result).toStrictEqual(E.right({ revision: BigInt(2) }))
     })
 
-    it('should fail to write with lower expectedRevision', async () => {
+    it('should write events in append-only (NO_STREAM)', async () => {
         const app = pipe(
-            TE.Do,
+            es.appendToStream({ stream, expectedRevision: NO_STREAM })(event({ type: 'Event1', data: {} })()),
+            TE.chain(() => es.appendToStream({ stream })(event({ type: 'Event2', data: {} })())),
+            TE.chain(() => es.appendToStream({ stream })(event({ type: 'Event3', data: {} })()))
+        )
+
+        const result = await app()
+        expect(result).toStrictEqual(E.right({ revision: BigInt(2) }))
+    })
+
+    it('should throw "RevisionMismatchError" writing events in append-only (NO_STREAM) when stream exists', async () => {
+        const app = pipe(
+            es.appendToStream({ stream })(event({ type: 'Event1', data: {} })()),
             TE.chain(() =>
-                es.appendToStream(streamId, [
-                    event({
-                        type: 'Created',
-                        data: { foo: 'foo' },
-                    })(),
-                ])
-            ),
-            TE.chain(({ revision }) =>
-                es.appendToStream(
-                    streamId,
-                    [
-                        event({
-                            type: 'Updated',
-                            data: { foo: 'foo1' },
-                        })(),
-                    ],
-                    { expectedRevision: revision - BigInt(1) }
-                )
+                es.appendToStream({ stream, expectedRevision: NO_STREAM })(event({ type: 'Event2', data: {} })())
             )
         )
 
         const result = await app()
         assert.ok(E.isLeft(result))
+        expect(result.left).toBeInstanceOf(RevisionMismatchError)
+    })
+
+    it('should throw "RevisionMismatchError" writing events on version mismatch', async () => {
+        const app = pipe(
+            es.appendToStream({ stream })(event({ type: 'Event1', data: {} })()),
+            TE.chain(() => es.appendToStream({ stream })(event({ type: 'Event1', data: {} })())),
+            TE.chain(() =>
+                es.appendToStream({ stream, expectedRevision: BigInt(0) })(event({ type: 'Event2', data: {} })())
+            )
+        )
+
+        const result = await app()
+        assert.ok(E.isLeft(result))
+        expect(result.left).toBeInstanceOf(RevisionMismatchError)
+    })
+
+    it('should throw "StreamNotFoundError" reading events from empty stream', async () => {
+        const result = await streamToTaskEither(es.readStream({ stream }))()
+        assert.ok(E.isLeft(result))
+        expect(result.left).toBeInstanceOf(StreamNotFoundError)
+    })
+
+    it('should throw "StreamNotFoundError" reading events fromRevision: -1n', async () => {
+        const result = await streamToTaskEither(es.readStream({ stream, fromRevision: BigInt(-1) }))()
+        assert.ok(E.isLeft(result))
+        expect(result.left).toBeInstanceOf(StreamNotFoundError)
+    })
+
+    it('should not throw AbortError on readStream abort', async () => {
+        await writeDefaultEvents(stream)(es)()
+
+        const controller = new AbortController()
+
+        const result = await pipe(
+            es.readStream({ stream, signal: controller.signal }),
+            IXO.take(1),
+            IXO.flatMap(() => IX.empty()),
+            IXO.finalize(() => controller.abort()),
+            IX.toArray
+        )
+
+        expect(result).toStrictEqual([])
+    })
+
+    it('should read stream events', async () => {
+        const app = pipe(
+            writeDefaultEvents(stream)(es),
+            TE.chain(() => pipe(es.readStream({ stream }), streamToTaskEither))
+        )
+
+        const result = await app()
+        expect(result).toStrictEqual(E.right(getDefaultEventsExpectations(stream)))
+    })
+
+    it('should read stream events from specific revision', async () => {
+        const app = pipe(
+            writeDefaultEvents(stream)(es),
+            TE.chain(() => pipe(es.readStream({ stream, fromRevision: BigInt(1) }), streamToTaskEither))
+        )
+
+        const result = await app()
+        expect(result).toStrictEqual(E.right(getDefaultEventsExpectations(stream, ev => ev.metadata.revision > 1)))
+    })
+
+    it('should read stream events from START', async () => {
+        const app = pipe(
+            writeDefaultEvents(stream)(es),
+            TE.chain(() => pipe(es.readStream({ stream, fromRevision: 'START' }), streamToTaskEither))
+        )
+
+        const result = await app()
+        expect(result).toStrictEqual(E.right(getDefaultEventsExpectations(stream)))
+    })
+
+    it('should read stream events from END', async () => {
+        const app = pipe(
+            writeDefaultEvents(stream)(es),
+            TE.chain(() => pipe(es.readStream({ stream, fromRevision: 'END' }), streamToTaskEither))
+        )
+
+        const result = await app()
+        expect(result).toStrictEqual(E.right([]))
+    })
+
+    it('should read stream events with maxCount', async () => {
+        const app = pipe(
+            writeDefaultEvents(stream)(es),
+            TE.chain(() => pipe(es.readStream({ stream, maxCount: 1 }), streamToTaskEither))
+        )
+
+        const result = await app()
+        expect(result).toStrictEqual(E.right(getDefaultEventsExpectations(stream, ev => ev.metadata.revision === 0)))
+    })
+
+    it('should read stream events BACKWARDS', async () => {
+        const app = pipe(
+            writeDefaultEvents(stream)(es),
+            TE.chain(() =>
+                pipe(es.readStream({ stream, direction: 'BACKWARDS', fromRevision: 'END' }), streamToTaskEither)
+            )
+        )
+
+        const result = await app()
+        expect(result).toStrictEqual(E.right(getDefaultEventsExpectations(stream).reverse()))
+    })
+
+    it('should read stream events BACKWARDS from specific revision', async () => {
+        const app = pipe(
+            writeDefaultEvents(stream)(es),
+            TE.chain(() =>
+                pipe(es.readStream({ stream, fromRevision: BigInt(1), direction: 'BACKWARDS' }), streamToTaskEither)
+            )
+        )
+
+        const result = await app()
+        expect(result).toStrictEqual(
+            E.right(getDefaultEventsExpectations(stream, ev => ev.metadata.revision < 1).reverse())
+        )
+    })
+
+    it('should read stream events BACKWARDS from START', async () => {
+        const app = pipe(
+            writeDefaultEvents(stream)(es),
+            TE.chain(() =>
+                pipe(es.readStream({ stream, fromRevision: 'START', direction: 'BACKWARDS' }), streamToTaskEither)
+            )
+        )
+
+        const result = await app()
+        expect(result).toStrictEqual(E.right([]))
+    })
+
+    it('should read all events', async () => {
+        await writeDefaultEvents(stream)(es)()
+        await writeDefaultEvents(stream2)(es)()
+
+        const result = await pipe(es.readAll(), IX.toArray)
+
+        expect(result).toStrictEqual([
+            ...getDefaultEventsExpectations(stream),
+            ...getDefaultEventsExpectations(stream2),
+        ])
+    })
+
+    it('should read all events from specific position', async () => {
+        await writeDefaultEvents(stream)(es)()
+        await writeDefaultEvents(stream2)(es)()
+
+        const allEvents = await pipe(es.readAll(), IX.toArray)
+
+        expect(allEvents).toStrictEqual([
+            ...getDefaultEventsExpectations(stream),
+            ...getDefaultEventsExpectations(stream2),
+        ])
+
+        const fromPositionEvents = await pipe(es.readAll({ fromPosition: allEvents[2].position }), IX.toArray)
+
+        expect(fromPositionEvents).toStrictEqual([...getDefaultEventsExpectations(stream2)])
+    })
+
+    it('should read all events from START', async () => {
+        await writeDefaultEvents(stream)(es)()
+        await writeDefaultEvents(stream2)(es)()
+
+        const result = await pipe(es.readAll(), IX.toArray)
+
+        expect(result).toStrictEqual([
+            ...getDefaultEventsExpectations(stream),
+            ...getDefaultEventsExpectations(stream2),
+        ])
+    })
+
+    it('should read all events from END', async () => {
+        await writeDefaultEvents(stream)(es)()
+        await writeDefaultEvents(stream2)(es)()
+
+        const result = await pipe(es.readAll({ fromPosition: 'END' }), IX.toArray)
+        expect(result).toStrictEqual([])
+    })
+
+    it('should read all events with maxCount', async () => {
+        await writeDefaultEvents(stream)(es)()
+
+        const result = await pipe(es.readAll({ maxCount: 1 }), IX.toArray)
+        expect(result).toStrictEqual(getDefaultEventsExpectations(stream, ev => ev.metadata.revision === 0))
+    })
+
+    it('should read all events BACKWARDS', async () => {
+        await writeDefaultEvents(stream)(es)()
+        await writeDefaultEvents(stream2)(es)()
+
+        const result = await pipe(es.readAll({ direction: 'BACKWARDS', fromPosition: 'END' }), IX.toArray)
+
+        expect(result).toStrictEqual(
+            [...getDefaultEventsExpectations(stream), ...getDefaultEventsExpectations(stream2)].reverse()
+        )
+    })
+
+    it('should read all events BACKWARDS from specific revision', async () => {
+        await writeDefaultEvents(stream)(es)()
+        await writeDefaultEvents(stream2)(es)()
+
+        const allEvents = await pipe(es.readAll(), IX.toArray)
+
+        expect(allEvents).toStrictEqual([
+            ...getDefaultEventsExpectations(stream),
+            ...getDefaultEventsExpectations(stream2),
+        ])
+
+        const fromPositionEvents = await pipe(
+            es.readAll({ direction: 'BACKWARDS', fromPosition: allEvents[3].position }),
+            IX.toArray
+        )
+
+        expect(fromPositionEvents).toStrictEqual(getDefaultEventsExpectations(stream).reverse())
+    })
+
+    it('should read all events BACKWARDS from START', async () => {
+        await writeDefaultEvents(stream)(es)()
+        await writeDefaultEvents(stream2)(es)()
+
+        const result = await pipe(es.readAll({ direction: 'BACKWARDS', fromPosition: 'START' }), IX.toArray)
+
+        expect(result).toStrictEqual([])
     })
 
     it('should delete stream', async () => {
         const app = pipe(
             TE.Do,
             TE.chain(() =>
-                es.appendToStream(
-                    streamId,
-                    [
-                        event({
-                            type: 'Created',
-                            data: { foo: 'foo' },
-                        })(),
-                    ],
-                    { expectedRevision: -BigInt(1) }
+                es.appendToStream({ stream, expectedRevision: BigInt(-1) })(
+                    event({
+                        type: 'Created',
+                        data: { foo: 'foo' },
+                    })()
                 )
             ),
-            TE.chain(() => pipe(es.readFromStream(streamId), toTaskEither))
+            TE.chain(() => pipe(es.readStream({ stream }), streamToTaskEither))
         )
 
         const result = await app()
@@ -173,44 +416,53 @@ export const test = ({ es }: Options) => {
         ])
 
         const result2 = await pipe(
-            es.deleteStream(streamId),
-            TE.chain(() => pipe(es.readFromStream(streamId), toTaskEither))
+            es.deleteStream({ stream }),
+            TE.chain(() => pipe(es.readStream({ stream }), streamToTaskEither))
         )()
 
-        assert.ok(E.isRight(result2))
-        assert.deepStrictEqual(result2.right.length, 0)
+        assert.ok(E.isLeft(result2))
+        expect(result2.left).toBeInstanceOf(StreamNotFoundError)
+    })
+
+    it('should not throw AbortError on subscribe abort', async () => {
+        const controller = new AbortController()
+
+        const result = await pipe(
+            es.subscribe({ stream, signal: controller.signal }),
+            IXO.mergeWith(
+                pipe(
+                    IX.from([0]),
+                    IXO.delay(5),
+                    IXO.tap(() => controller.abort()),
+                    IXO.flatMap(() => IX.empty())
+                )
+            ),
+            IX.toArray
+        )
+
+        expect(result).toStrictEqual([])
     })
 
     it('should subscribe with catch-up', async () => {
-        const trigger = () =>
-            delayedAppendtoStream(es)()(
-                streamId,
-                event({
-                    type: 'Updated',
-                    data: {
-                        bar: 'baz',
-                    },
-                    metadata: {},
-                })(),
-                { expectedRevision: BigInt(2) }
-            )
+        const ev = event({
+            type: 'Updated',
+            data: {
+                bar: 'baz',
+            },
+            metadata: {},
+        })()
 
-        const app = pipe(
-            writeDefaultEvents(streamId)(es),
-            TE.chain(() =>
-                pipe(
-                    RX.merge(es.subscribe(streamId, { fromRevision: -BigInt(1) }), trigger()),
-                    RXO.takeUntil(RX.timer(2000)),
-                    RXO.take(4),
-                    toTaskEither
-                )
-            )
+        await writeDefaultEvents(stream)(es)()
+
+        const result = await pipe(
+            es.subscribe({ stream, fromRevision: BigInt(-1) }),
+            tapOnFirst(() => es.appendToStream({ stream, expectedRevision: BigInt(2) })(ev)()),
+            IXO.take(4),
+            IX.toArray
         )
 
-        const result = await app()
-        assert.ok(E.isRight(result))
-        expect(result.right).toEqual([
-            ...getDefaultEventsExpectations(streamId),
+        expect(result).toStrictEqual([
+            ...getDefaultEventsExpectations(stream),
             expect.objectContaining({
                 event: expect.objectContaining({
                     type: 'Updated',
@@ -222,36 +474,26 @@ export const test = ({ es }: Options) => {
         ])
     })
 
-    it('should subscribe from revision ', async () => {
-        const trigger = () =>
-            delayedAppendtoStream(es)()(
-                streamId,
-                event({
-                    type: 'Updated',
-                    data: {
-                        bar: 'baz',
-                    },
-                    metadata: {},
-                })(),
-                { expectedRevision: BigInt(2) }
-            )
+    it('should subscribe from revision', async () => {
+        const ev = event({
+            type: 'Updated',
+            data: {
+                bar: 'baz',
+            },
+            metadata: {},
+        })()
 
-        const app = pipe(
-            writeDefaultEvents(streamId)(es),
-            TE.chain(() =>
-                pipe(
-                    RX.merge(es.subscribe(streamId, { fromRevision: BigInt(1) }), trigger()),
-                    RXO.takeUntil(RX.timer(2000)),
-                    RXO.take(2),
-                    toTaskEither
-                )
-            )
+        await writeDefaultEvents(stream)(es)()
+
+        const result = await pipe(
+            es.subscribe({ stream, fromRevision: BigInt(1) }),
+            tapOnFirst(() => es.appendToStream({ stream })(ev)()),
+            IXO.take(2),
+            IX.toArray
         )
 
-        const result = await app()
-        assert.ok(E.isRight(result))
-        expect(result.right).toEqual([
-            ...getDefaultEventsExpectations(streamId, ev => ev.metadata.revision >= 2),
+        expect(result).toStrictEqual([
+            ...getDefaultEventsExpectations(stream, e => e.metadata.revision >= 2),
             expect.objectContaining({
                 event: expect.objectContaining({
                     type: 'Updated',
@@ -264,30 +506,37 @@ export const test = ({ es }: Options) => {
     })
 
     it('should subscribe', async () => {
-        const trigger = () =>
-            delayedAppendtoStream(es)()(
-                streamId,
-                event({
-                    type: 'Updated',
-                    data: {
-                        bar: 'baz',
-                    },
-                    metadata: {},
-                })(),
-                { expectedRevision: BigInt(2) }
-            )
+        const ev = event({
+            type: 'Updated',
+            data: {
+                bar: 'baz',
+            },
+            metadata: {},
+        })()
 
-        const app = () =>
-            pipe(
-                fromTaskEither(writeDefaultEvents(streamId)(es)),
-                RXO.switchMap(() => RX.merge(es.subscribe(streamId, {}), trigger())),
-                RXO.takeUntil(RX.timer(2000)),
-                RXO.take(1),
-                toPromise
-            )
+        await writeDefaultEvents(stream)(es)()
 
-        const result = await app()
-        expect(result).toEqual([
+        const controller = new AbortController()
+
+        const result = await pipe(
+            IX.merge(
+                pipe(
+                    es.subscribe({ stream, signal: controller.signal }),
+                    IXO.catchError(error => (error instanceof AbortError ? IX.empty() : IX.throwError(error)))
+                ),
+                pipe(
+                    es.appendToStream({ stream, expectedRevision: BigInt(2) })(ev),
+                    taskEitherToStream,
+                    IXO.delay(5),
+                    IXO.flatMap(() => IX.empty())
+                )
+            ),
+            IXO.take(1),
+            IXO.finalize(() => controller.abort()),
+            IX.toArray
+        )
+
+        expect(result).toStrictEqual([
             expect.objectContaining({
                 event: expect.objectContaining({
                     type: 'Updated',
@@ -299,137 +548,140 @@ export const test = ({ es }: Options) => {
         ])
     })
 
-    it('should subscribeToAll with catch-up', async () => {
-        const streamId2 = generateStreamId()
+    it('should not throw AbortError on subscribeToAll abort', async () => {
+        const controller = new AbortController()
 
-        const trigger = () =>
-            delayedAppendtoStream(es)()(
-                streamId2,
-                event({
-                    type: 'Updated',
-                    data: {
-                        bar: 'baz',
-                    },
-                    metadata: {},
-                })(),
-                { expectedRevision: -BigInt(1) }
-            )
-
-        const app = pipe(
-            writeDefaultEvents(streamId)(es),
-            TE.chain(() =>
+        const result = await pipe(
+            es.subscribeToAll({ signal: controller.signal }),
+            IXO.mergeWith(
                 pipe(
-                    RX.merge(es.subscribeToAll({ fromPosition: 'START' }), trigger()),
-                    RXO.takeUntil(RX.of(null).pipe(RX.delay(1000))),
-                    RXO.take(4),
-                    toTaskEither
+                    IX.from([0]),
+                    IXO.delay(5),
+                    IXO.tap(() => controller.abort()),
+                    IXO.flatMap(() => IX.empty())
                 )
-            )
+            ),
+            IX.toArray
         )
 
+        expect(result).toStrictEqual([])
+    })
+
+    it('should subscribeToAll with catch-up', async () => {
+        const ev = event({
+            type: 'Updated2',
+            data: {
+                bar: 'baz',
+            },
+            metadata: {},
+        })()
+
+        await writeDefaultEvents(stream)(es)()
+
+        const controller = new AbortController()
+
+        const app = () =>
+            pipe(
+                es.subscribeToAll({ fromPosition: 'START', signal: controller.signal }),
+                tapOnFirst(() => es.appendToStream({ stream: stream2, expectedRevision: NO_STREAM })(ev)()),
+                IXO.take(4),
+                IXO.finalize(() => controller.abort()),
+                IX.toArray
+            )
+
         const result = await app()
-        await es.deleteStream(streamId2)()
-        assert.ok(E.isRight(result))
-        expect(result.right).toEqual([
-            ...getDefaultEventsExpectations(streamId),
+
+        const expected = [
+            ...getDefaultEventsExpectations(stream),
             expect.objectContaining({
                 event: expect.objectContaining({
-                    type: 'Updated',
-                    data: { bar: 'baz' },
-                    metadata: {},
+                    id: ev.id,
+                    type: ev.type,
+                    data: ev.data,
+                    metadata: ev.metadata,
                 }),
-                streamId: streamId2,
+                stream: stream2,
                 revision: BigInt(0),
             }),
-        ])
+        ]
+
+        expect(result).toStrictEqual(expected)
     })
 
     it('should subscribeToAll from position', async () => {
-        const streamId2 = generateStreamId()
+        const ev = event({
+            type: 'Updated',
+            data: {
+                bar: 'baz',
+            },
+            metadata: {},
+        })()
 
-        const trigger = () =>
-            delayedAppendtoStream(es)()(
-                streamId2,
-                event({
-                    type: 'Updated',
-                    data: {
-                        bar: 'baz',
-                    },
-                    metadata: {},
-                })(),
-                { expectedRevision: -BigInt(1) }
-            )
+        const controller = new AbortController()
 
-        const app = pipe(
-            writeDefaultEvents(streamId)(es),
-            TE.chain(() =>
-                pipe(
-                    es.readAll({}),
-                    RXO.filter(e => e.streamId === streamId && e.revision === BigInt(1)),
-                    RXO.take(1),
-                    RXO.switchMap(({ position }) => RX.merge(es.subscribeToAll({ fromPosition: position }), trigger())),
-                    RXO.takeUntil(RX.of(null).pipe(RX.delay(1000))),
-                    RXO.take(2),
-                    toTaskEither
-                )
-            )
+        await writeDefaultEvents(stream)(es)()
+
+        const result = await pipe(
+            es.readAll({ signal: controller.signal }),
+            IXO.filter(e => e.stream === stream && e.revision === BigInt(1)),
+            IXO.take(1),
+            IXO.flatMap(({ position }) => es.subscribeToAll({ fromPosition: position, signal: controller.signal })),
+            tapOnFirst(() => es.appendToStream({ stream: stream2, expectedRevision: NO_STREAM })(ev)()),
+            IXO.take(2),
+            IXO.finalize(() => controller.abort()),
+            IX.toArray
         )
 
-        const result = await app()
-
-        await es.deleteStream(streamId2)()
-        assert.ok(E.isRight(result))
-        expect(result.right).toEqual([
-            ...getDefaultEventsExpectations(streamId, ev => ev.metadata.revision >= 2),
+        expect(result).toStrictEqual([
+            ...getDefaultEventsExpectations(stream, e => e.metadata.revision >= 2),
             expect.objectContaining({
                 event: expect.objectContaining({
                     type: 'Updated',
                     data: { bar: 'baz' },
                     metadata: {},
                 }),
-                streamId: streamId2,
+                stream: stream2,
                 revision: BigInt(0),
             }),
         ])
     })
 
     it('should subscribeToAll', async () => {
-        const trigger = () =>
-            delayedAppendtoStream(es)()(
-                streamId,
-                event({
-                    type: 'Updated',
-                    data: {
-                        bar: 'baz',
-                    },
-                    metadata: {},
-                })(),
-                { expectedRevision: BigInt(2) }
-            )
+        const ev = event({
+            type: 'Updated',
+            data: {
+                bar: 'baz',
+            },
+            metadata: {},
+        })()
 
-        const app = pipe(
-            writeDefaultEvents(streamId)(es),
-            TE.chain(() =>
+        const controller = new AbortController()
+
+        await writeDefaultEvents(stream)(es)()
+
+        const result = await pipe(
+            IX.merge(
+                pipe(es.subscribeToAll({ signal: controller.signal })),
                 pipe(
-                    RX.merge(es.subscribeToAll(), trigger()),
-                    RXO.takeUntil(RX.of(null).pipe(RX.delay(2000))),
-                    RXO.take(1),
-                    toTaskEither
+                    es.appendToStream({ stream, expectedRevision: BigInt(2) })(ev),
+                    taskEitherToStream,
+                    IXO.delay(5),
+                    IXO.flatMap(() => IX.empty())
                 )
-            )
+            ),
+            IXO.take(1),
+            IXO.finalize(() => controller.abort()),
+            IX.toArray
         )
 
-        const result = await app()
-
-        assert.ok(E.isRight(result))
-        expect(result.right).toEqual([
+        expect(result).toStrictEqual([
             expect.objectContaining({
                 event: expect.objectContaining({
                     type: 'Updated',
                     data: { bar: 'baz' },
                     metadata: {},
                 }),
-                streamId: streamId,
+                stream: stream,
                 revision: BigInt(3),
             }),
         ])

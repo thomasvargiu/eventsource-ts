@@ -1,87 +1,71 @@
-import type { EventType } from '@eventsource/events/Event'
+import type { Event } from '@eventsource/eventstore/Event'
 import { pipe } from 'fp-ts/function'
-import type { ChangeStreamDocument, ChangeStreamOptions, Collection, Document } from 'mongodb'
-import { defer, from, Observable } from 'rxjs'
-import { filter, finalize } from 'rxjs/operators'
-import type { StoreSchema } from '../EventStore'
+import { throwIfAborted } from 'ix/aborterror'
+import * as IX from 'ix/asynciterable'
+import * as IXO from 'ix/asynciterable/operators'
+import type { ChangeStream, ChangeStreamDocument, ChangeStreamOptions, Document, Timestamp } from 'mongodb'
+import type { StoreCollection, StoreSchema } from '../EventStore'
+import { fromReadable } from '../internal/asyncIterable/fromReadable'
 
-type Dependencies<E extends EventType> = {
-    collection: Collection<StoreSchema<E>>
+type Dependencies<E extends Event> = {
+    collection: StoreCollection<E>
+    batchSize?: number
 }
 
-/*
-const genericSubscribe = (
-    pipeline: Document = {},
-    changeStreamOptions: ChangeStreamOptions = {}
-) =>
-    <E extends EventType>({ collection }: Dependencies<E>) => pipe(
-        defer(() => pipe(
-            collection.watch([
-                { $match: {
-                    operationType: 'insert',
-                    ...pipeline,
-                }},
-            ], {
-                batchSize: 1000,
-                ...changeStreamOptions,
-            }),
-            cursor => pipe(
-                merge(
-                    fromEventPattern<ChangeStreamDocument<StoreSchema<E>>>(
-                        (handler) => cursor.addListener('change', handler),
-                        (handler) => cursor.removeListener('change', handler)
-                    ),
-                    pipe(
-                        fromEventPattern<ChangeStreamDocument<StoreSchema<E>>>(
-                            (handler) => cursor.addListener('error', handler),
-                            (handler) => cursor.removeListener('error', handler)
-                        ),
-                        switchMap(throwError)
-                    ),
-                ),
-                finalize(() => cursor.closed || cursor.close(() => {})),
-                takeUntil(fromEventPattern<void>(
-                    (handler) => cursor.addListener('close', handler),
-                    (handler) => cursor.removeListener('close', handler)
-                )),
-            )
-        )),
-        filter((document): document is typeof document & Required<Pick<typeof document, 'fullDocument'>> => document.fullDocument !== undefined),
-    )
-*/
+type ChangeStreamInsertDoc<E extends Event> = ChangeStreamDocument<StoreSchema<E>> & {
+    operationType: 'insert'
+    fullDocument: StoreSchema<E>
+    clusterTime: Timestamp
+}
 
-/**
- * @internal
- */
-export const genericSubscribe =
-    <E extends EventType>(pipeline: Document = {}, changeStreamOptions: ChangeStreamOptions = {}) =>
-    ({ collection }: Dependencies<E>) =>
+type ChangeStreamEvent<E extends Event> =
+    | (ChangeStreamDocument<StoreSchema<E>> & { operationType: 'invalidate' })
+    | ChangeStreamInsertDoc<E>
+
+const eventStream = <E extends Event>(cursor: ChangeStream<StoreSchema<E>>): AsyncIterable<ChangeStreamEvent<E>> =>
+    fromReadable<ChangeStreamEvent<E>>(cursor.stream())
+
+const watch =
+    <E2 extends Event>(pipeline: Document = {}, changeStreamOptions: ChangeStreamOptions = {}) =>
+    <E extends E2>(deps: Dependencies<E>): AsyncIterable<ChangeStreamInsertDoc<E>> =>
         pipe(
-            defer(() =>
-                pipe(
-                    collection.watch(
+            IX.defer(signal => {
+                throwIfAborted(signal)
+
+                return pipe(
+                    deps.collection.watch(
                         [
                             {
                                 $match: {
-                                    operationType: 'insert',
-                                    ...pipeline,
+                                    $or: [{ operationType: 'insert', ...pipeline }, { operationType: 'invalidate' }],
                                 },
                             },
                         ],
                         {
-                            batchSize: 1000,
+                            readPreference: 'secondaryPreferred',
+                            batchSize: deps.batchSize || 1000,
                             ...changeStreamOptions,
                         }
                     ),
-                    cursor =>
-                        pipe(
-                            from(cursor.stream()) as Observable<ChangeStreamDocument<StoreSchema<E>>>,
-                            finalize(() => cursor.closed || cursor.close(() => undefined))
-                        )
+                    eventStream
                 )
-            ),
-            filter(
-                (document): document is typeof document & Required<Pick<typeof document, 'fullDocument'>> =>
-                    document.fullDocument !== undefined
+            }),
+            IXO.flatMap(event =>
+                event.operationType === 'invalidate'
+                    ? // eslint-disable-next-line @typescript-eslint/no-unused-vars, unused-imports/no-unused-vars
+                      watch<E>(pipeline, {
+                          startAfter: event._id,
+                      })(deps)
+                    : IX.of(event)
             )
         )
+
+/**
+ * @internal
+ *
+ * MongoServerError: Resume of change stream was not possible, as the resume point may no longer be in the oplog.
+ */
+export const genericSubscribe = <E extends Event>(
+    pipeline: Document = {},
+    changeStreamOptions: ChangeStreamOptions = {}
+) => watch<E>(pipeline, changeStreamOptions)

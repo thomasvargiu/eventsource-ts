@@ -1,31 +1,25 @@
-import type { EventData, EventType } from '@eventsource/events/Event'
-import type { AppendToStreamOptions } from '@eventsource/eventstore/EventStore'
+import type { Event } from '@eventsource/eventstore/Event'
+import {
+    ANY,
+    AppendResult,
+    AppendToStreamOptions,
+    ExpectedRevision,
+    NO_STREAM,
+} from '@eventsource/eventstore/EventStore'
 import { RevisionMismatchError } from '@eventsource/eventstore/errors'
-import { nonEmptyArray } from 'fp-ts'
+import { readonlyArray } from 'fp-ts'
 import { toError } from 'fp-ts/Either'
-import type { NonEmptyArray } from 'fp-ts/NonEmptyArray'
 import * as RTE from 'fp-ts/ReaderTaskEither'
 import * as TE from 'fp-ts/TaskEither'
 import { constVoid, pipe } from 'fp-ts/function'
-import { Collection, CommandOperationOptions, MongoClient, ReadPreference, TransactionOptions } from 'mongodb'
-import { monotonicFactory } from 'ulid'
-import type { StoreSchema } from '../EventStore'
+import { CommandOperationOptions, MongoClient, ReadPreference, TransactionOptions } from 'mongodb'
+import type { StoreCollection, StoreSchema } from '../EventStore'
 import { eventToSchema } from '../internal/eventToSchema'
 import { getStreamRevision } from './getStreamRevision'
 
-const ulid = monotonicFactory()
-
-type Dependencies<E extends EventType> = {
+type Dependencies<E extends Event> = {
     client: MongoClient
-    collection: Collection<StoreSchema<E>>
-}
-
-export type MongoAppendToStreamOptions = AppendToStreamOptions & {
-    /**
-     * Check revision on database. Enabling it asserts the sequence of the revision.
-     */
-    checkRevision?: boolean
-    commandOptions?: CommandOperationOptions
+    collection: StoreCollection<E>
 }
 
 const transactionOptions: TransactionOptions = {
@@ -34,29 +28,23 @@ const transactionOptions: TransactionOptions = {
     writeConcern: { w: 'majority' },
 }
 
-const writeDocuments =
-    <E extends EventType>(
-        documents: StoreSchema<E>[],
-        commandOptions: CommandOperationOptions = {}
-    ): RTE.ReaderTaskEither<Dependencies<E>, Error, void> =>
-    ({ collection }) =>
+const writeSingleDocument =
+    <E extends Event>(documents: ReadonlyArray<StoreSchema<E>>, commandOptions: CommandOperationOptions = {}) =>
+    ({ collection }: Dependencies<E>) =>
         pipe(
-            TE.tryCatch(() => collection.insertMany(documents, commandOptions), toError),
+            TE.tryCatch(() => collection.insertMany(documents as StoreSchema<E>[], commandOptions), toError),
             TE.map(constVoid)
         )
 
-const writeMultipleDocuments =
-    <E extends EventType>(
-        documents: StoreSchema<E>[],
-        commandOptions: CommandOperationOptions = {}
-    ): RTE.ReaderTaskEither<Dependencies<E>, Error, void> =>
-    ({ client, collection }) =>
+const writeDocumentsInTransaction =
+    <E extends Event>(documents: ReadonlyArray<StoreSchema<E>>, commandOptions: CommandOperationOptions = {}) =>
+    ({ client, collection }: Dependencies<E>) =>
         pipe(
             TE.tryCatch(
                 () =>
                     client.withSession(session =>
                         session.withTransaction(
-                            () => collection.insertMany(documents, commandOptions),
+                            () => collection.insertMany(documents as StoreSchema<E>[], commandOptions),
                             transactionOptions
                         )
                     ),
@@ -67,56 +55,48 @@ const writeMultipleDocuments =
 
 const writeEvents =
     (commandOptions: CommandOperationOptions = {}) =>
-    <E extends EventType>(documents: StoreSchema<E>[]) =>
+    <E extends Event>(documents: ReadonlyArray<StoreSchema<E>>) =>
         pipe(
             documents.length > 1
-                ? writeMultipleDocuments(documents, commandOptions)
-                : writeDocuments(documents, commandOptions)
+                ? writeDocumentsInTransaction<E>(documents, commandOptions)
+                : writeSingleDocument<E>(documents, commandOptions),
+            RTE.map(constVoid)
         )
 
-const checkExpectedRevision = (stream: string, expectedRevision?: bigint) =>
-    pipe(
-        getStreamRevision(stream),
-        RTE.chainW(
-            RTE.fromPredicate(
-                revision => expectedRevision === undefined || revision === expectedRevision,
-                revision => new RevisionMismatchError(expectedRevision || BigInt(-1), revision)
-            )
-        )
-    )
+/**
+ * Check the expected revision
+ */
+const checkExpectedRevision = <E extends Event>(stream: string, expectedRevision: ExpectedRevision = ANY) =>
+    expectedRevision !== ANY
+        ? RTE.right(expectedRevision === NO_STREAM ? BigInt(-1) : expectedRevision)
+        : getStreamRevision<E>(stream)
 
-export const appendToStream = <E extends EventType>(
-    stream: string,
-    events: EventData<E> | NonEmptyArray<EventData<E>>,
-    { expectedRevision, checkRevision = false, commandOptions = {} }: MongoAppendToStreamOptions = {}
-) =>
-    pipe(
-        RTE.Do,
-        RTE.bind('timestamp', () => RTE.right(Date.now())),
-        RTE.bind('currentRevision', () =>
-            checkRevision
-                ? checkExpectedRevision(stream, expectedRevision)
-                : RTE.of(expectedRevision !== undefined ? expectedRevision : BigInt(-1))
-        ),
-        RTE.bind('nextRevision', ({ currentRevision }) => RTE.of(currentRevision)),
-        RTE.bind('evs', () => RTE.of(Array.isArray(events) ? events : ([events] as NonEmptyArray<EventData<E>>))),
-        RTE.chain(({ timestamp, currentRevision, nextRevision, evs }) => {
-            let revision = nextRevision
-            return pipe(
-                evs,
-                nonEmptyArray.map(
-                    eventToSchema({ streamId: stream, revision: ++revision, timestamp, position: ulid() })
-                ),
-                writeEvents(commandOptions),
-                RTE.bimap(
-                    error =>
-                        error.message.startsWith('E11000')
-                            ? new RevisionMismatchError(expectedRevision || BigInt(-1), currentRevision)
-                            : error,
-                    () => ({
-                        revision: revision + BigInt(evs.length - 1),
-                    })
+// expectedRevision = ANY => just append a new event, we should get the last revision first (then retry on failures?)
+// expectedRevision = NO_STREAM => we can just set the expectedRevision to -1n, the store can trigger an exception on duplicate key
+
+export const appendToStream =
+    <E2 extends Event>({ stream, expectedRevision = ANY }: AppendToStreamOptions) =>
+    <E extends E2>(events: E | ReadonlyArray<E>): RTE.ReaderTaskEither<Dependencies<E>, Error, AppendResult> =>
+        pipe(
+            RTE.ask<Dependencies<E>>(),
+            RTE.map(() => ({})),
+            RTE.bind('timestamp', () => RTE.fromIO(() => Date.now())),
+            RTE.bind('currentRevision', () => checkExpectedRevision<E>(stream, expectedRevision)),
+            RTE.chain(({ timestamp, currentRevision }) => {
+                let revision = currentRevision
+                return pipe(
+                    (Array.isArray(events) ? events : [events]) as ReadonlyArray<E>,
+                    readonlyArray.map(eventToSchema({ stream, revision: ++revision, timestamp })),
+                    RTE.right,
+                    RTE.chainW(writeEvents()),
+                    RTE.bimap(
+                        error =>
+                            error.message.startsWith('E11000')
+                                ? new RevisionMismatchError(expectedRevision, currentRevision)
+                                : error,
+                        () => revision
+                    )
                 )
-            )
-        })
-    )
+            }),
+            RTE.map(revision => ({ revision }))
+        )

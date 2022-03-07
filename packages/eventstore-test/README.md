@@ -1,11 +1,13 @@
-# `eventstore-test`
+# `@eventsource/eventstore-test`
 
-> TODO: description
+> `@eventsource/eventstore` functional test suite.
+
+## Install
+
+```bash
+$ npm install -D @eventsource/eventstore-test
+```
 
 ## Usage
 
-```
-const eventstoreTs = require('eventsource-ts');
-
-// TODO: DEMONSTRATE API
-```
+Read the [`@eventsource/eventstore`](https://www.npmjs.com/package/@eventsource/eventstore) documentation.

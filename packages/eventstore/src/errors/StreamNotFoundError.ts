@@ -1,6 +1,6 @@
 export class StreamNotFoundError extends Error {
     constructor(streamName: string) {
-        super()
-        this.message = `Stream "${streamName}" not found`
+        super(`Stream "${streamName}" not found`)
+        Object.setPrototypeOf(this, StreamNotFoundError.prototype)
     }
 }
