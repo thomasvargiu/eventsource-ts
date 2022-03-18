@@ -12,7 +12,7 @@ packages/*/dist
 packages/*/docker-compose.override.yml
 packages/*/docker-compose.override.yaml
 */.tsbuildinfo
-packages/*/.tsbuildinfo
+packages/*/*.tsbuildinfo
 coverage/
 scratch/
 node_modules/
