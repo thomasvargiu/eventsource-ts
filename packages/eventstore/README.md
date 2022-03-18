@@ -9,7 +9,7 @@ $ npm install @eventsource/eventstore
 ## Implementations
 
 - [`@eventsource/eventstore-inmemory`](https://www.npmjs.com/package/@eventsource/eventstore-inmemory)
-- [`@eventsource/eventstore-mongo`]((https://www.npmjs.com/package/@eventsource/eventstore-mongo))
+- [`@eventsource/eventstore-mongo`](https://www.npmjs.com/package/@eventsource/eventstore-mongo)
 
 ## Event store
 
