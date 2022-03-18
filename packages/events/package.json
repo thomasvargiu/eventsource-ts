@@ -1,6 +1,6 @@
 {
     "name": "@eventsource/events",
-    "version": "0.1.7",
+    "version": "0.2.0",
     "private": true,
     "description": "events",
     "keywords": [
@@ -91,6 +91,6 @@
         "uuid": "^8.0.0"
     },
     "devDependencies": {
-        "@eventsource/eslint-config": "^0.1.7"
+        "@eventsource/eslint-config": "^0.2.0"
     }
 }

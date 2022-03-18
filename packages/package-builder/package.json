@@ -1,6 +1,6 @@
 {
     "name": "@eventsource/package-builder",
-    "version": "0.1.7",
+    "version": "0.2.0",
     "private": true,
     "description": "Package builder",
     "keywords": [],
@@ -74,6 +74,6 @@
         "yargs": "^17.3.1"
     },
     "devDependencies": {
-        "@eventsource/eslint-config": "^0.1.7"
+        "@eventsource/eslint-config": "^0.2.0"
     }
 }

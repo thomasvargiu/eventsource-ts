@@ -1,6 +1,6 @@
 {
     "name": "@eventsource/cqrs",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "private": true,
     "description": "CQRS module",
     "keywords": [
@@ -90,6 +90,6 @@
         "tslib": "^1.9.3 || ^2.3"
     },
     "devDependencies": {
-        "@eventsource/eslint-config": "^0.1.7"
+        "@eventsource/eslint-config": "^0.2.0"
     }
 }
