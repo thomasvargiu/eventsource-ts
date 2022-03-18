@@ -1,6 +1,6 @@
 {
     "name": "@eventsource/aggregate",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "description": "Aggregate module",
     "keywords": [
         "eventstore",
@@ -85,14 +85,14 @@
     },
     "sideEffects": false,
     "dependencies": {
-        "@eventsource/eventstore": "^0.2.1",
+        "@eventsource/eventstore": "^0.2.2",
         "fp-ts": "^2.11.0",
         "tslib": "^1.9.3 || ^2.3"
     },
     "devDependencies": {
         "@eventsource/eslint-config": "^0.2.1",
         "@eventsource/eventstore": "^0.1.7",
-        "@eventsource/eventstore-inmemory": "^0.2.1",
+        "@eventsource/eventstore-inmemory": "^0.2.2",
         "@types/jest": "^27.4.0",
         "jest": "^27.5.0"
     }
