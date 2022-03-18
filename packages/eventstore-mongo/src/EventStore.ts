@@ -1,13 +1,20 @@
 import type { Event } from '@eventsource/eventstore/Event'
 import type { SubscribableEventStore, StoreAllEvent } from '@eventsource/eventstore/EventStore'
 import type { MongoClient, Long, Collection } from 'mongodb'
+import { createCollection as createCollectionFunc } from './createCollection'
 import { appendToStream } from './stream/appendToStream'
 import { deleteStream } from './stream/deleteStream'
 import { readAll } from './stream/readAll'
 import { readStream } from './stream/readStream'
 import { subscribe } from './stream/subscribe'
 import { subscribeToAll } from './stream/subscribeToAll'
-export { createCollection as createCollectionIfNotExists } from './createCollection'
+
+export const createCollection = createCollectionFunc
+
+/**
+ * @deprecated Use `createCollection()`
+ */
+export const createCollectionIfNotExists = createCollection
 
 export type MongoEvent<E extends Event = Event> = StoreAllEvent<E>
 

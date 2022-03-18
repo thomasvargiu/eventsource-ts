@@ -93,7 +93,7 @@
         "@eventsource/eslint-config": "^0.2.0",
         "@eventsource/eventstore": "^0.1.7",
         "@eventsource/eventstore-inmemory": "^0.2.0",
-        "@types/jest": "^27.4.1",
-        "jest": "^27.5.1"
+        "@types/jest": "^27.4.0",
+        "jest": "^27.5.0"
     }
 }

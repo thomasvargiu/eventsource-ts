@@ -8,8 +8,8 @@ $ npm install @eventsource/eventstore
 
 ## Implementations
 
-- `@eventsource/eventstore-inmemory`
-- `@eventsource/eventstore-mongo`
+- [`@eventsource/eventstore-inmemory`](https://www.npmjs.com/package/@eventsource/eventstore-inmemory)
+- [`@eventsource/eventstore-mongo`]((https://www.npmjs.com/package/@eventsource/eventstore-mongo))
 
 ## Event store
 
@@ -64,7 +64,7 @@ declare const store: EventStore<Event>
 
 /**
  * Append an event to a new stream, use `expectedRevision: NO_STREAM` to ensure
- * the stream does not exists.
+ * the stream does not exist.
  * Then retrieve the current revision.
  */
 pipe(
