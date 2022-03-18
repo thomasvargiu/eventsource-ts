@@ -1,6 +1,6 @@
 {
     "name": "@eventsource/eslint-config",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "description": "eslint for eventsource-ts",
     "keywords": [
         "eslint",
@@ -52,10 +52,10 @@
     },
     "devDependencies": {
         "eslint": "^8.7.0",
-        "typescript": "^4.5",
+        "madge": "^5.0.0",
         "npm-run-all": "^4.1.0",
         "rimraf": "^3.0.0",
-        "madge": "^5.0.0"
+        "typescript": "^4.5"
     },
     "publishConfig": {
         "directory": "dist",

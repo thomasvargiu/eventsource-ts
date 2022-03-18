@@ -1,6 +1,6 @@
 {
     "name": "@eventsource/eventstore-test",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "description": "Eventstore functional test suite",
     "keywords": [],
     "author": "Thomas Vargiu <tvargiu@gmail.com>",
@@ -78,14 +78,14 @@
     },
     "sideEffects": false,
     "dependencies": {
-        "@eventsource/eventstore": "^0.2.0",
+        "@eventsource/eventstore": "^0.2.1",
         "fp-ts": "^2.11.0",
         "ix": "^4.5.2",
         "tslib": "^1.9.3 || ^2.3",
         "uuid": "^8.0.0"
     },
     "devDependencies": {
-        "@eventsource/eslint-config": "^0.2.0",
+        "@eventsource/eslint-config": "^0.2.1",
         "@types/jest": "^27.4.0",
         "jest": "^27.5.0"
     }
