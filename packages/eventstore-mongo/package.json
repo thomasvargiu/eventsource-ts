@@ -52,7 +52,7 @@
     },
     "prettier": "@eventsource/eslint-config/prettierrc.json",
     "scripts": {
-        "prepare": "mkdir -p dist && cp package.json LICENSE README.md CHANGELOG.md dist/ && rm -f *.tsbuildinfo",
+        "prepare": "mkdir -p dist && cp package.json LICENSE README.md CHANGELOG.md dist/ && rm -f *.tsbuildinfo && rm -f dist/*.tsbuildinfo",
         "prebuild": "run-s clean prepare",
         "build": "npm run compile --",
         "build:dev": "run-s build",

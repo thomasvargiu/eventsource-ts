@@ -19,7 +19,7 @@
         "url": "git+https://github.com/thomasvargiu/eventsource-ts.git"
     },
     "scripts": {
-        "prepare": "mkdir -p dist && cp package.json LICENSE README.md CHANGELOG.md dist/ && rm -f *.tsbuildinfo",
+        "prepare": "mkdir -p dist && cp package.json LICENSE README.md CHANGELOG.md dist/ && rm -f *.tsbuildinfo && rm -f dist/*.tsbuildinfo",
         "prebuild": "run-s clean prepare",
         "build": "tsc && cp .prettierrc.json dist/prettierrc.json && cp package.json dist/ && cp LICENSE dist/",
         "build:dev": "run-s build",
