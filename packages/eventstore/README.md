@@ -281,14 +281,11 @@ To handle backpressure on large streams, read and subscribe methods return an `A
 
 ### Aborting
 
-To abort read or subscribe operations, all methods supports the `AbortSignal`.
+To abort read or subscribe operations, all methods support the `AbortSignal`.
 
 ```typescript
-import { event, Event, EventFromCreator } from '@eventsource/eventstore/Event'
-import { AbortError } from '@eventsource/eventstore/errors'
-import { BACKWARDS, END, EventStore } from '@eventsource/eventstore/EventStore'
-import * as TE from 'fp-ts/TaskEither'
-import * as E from 'fp-ts/Either'
+import type { Event } from '@eventsource/eventstore/Event'
+import type { EventStore } from '@eventsource/eventstore/EventStore'
 import { pipe } from 'fp-ts/function';
 import * as IXO from 'ix/asynciterable/operators'
 
