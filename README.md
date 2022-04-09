@@ -1,4 +1,4 @@
-# `@eventstore`
+# `@eventsource`
 
 > Functional/reactive event source libraries
 
